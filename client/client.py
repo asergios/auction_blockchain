@@ -1,6 +1,7 @@
 import os
 import socket
 import json
+from cartaodecidadao import CartaoDeCidadao
 
 colors = {
 		'blue': '\033[94m',
@@ -144,6 +145,7 @@ def main():
 			print( str(menu.index(item) + 1) + " - " + list(item.keys())[0] )
 
 		choice = input(">> ")
+
 		try:																# Reading the choice
 			if int(choice) <= 0 : raise ValueError
 			list(menu[int(choice) - 1].values())[0]()
