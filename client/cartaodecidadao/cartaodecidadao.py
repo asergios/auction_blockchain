@@ -10,6 +10,8 @@ from Crypto.Hash import SHA256, SHA
 from Crypto.Signature import PKCS1_v1_5 
 from base64 import b64decode 
 
+import chardet
+
 
 class CartaoDeCidadaoLabel:
 	SIGNATURE_CERT = "CITIZEN SIGNATURE CERTIFICATE"
@@ -58,6 +60,16 @@ class CartaoDeCidadao:
         else:
             print("Card Reader not found!")
             quit()
+
+    def get_identity(self, certificate = None):
+        """
+            Returns identity (subject) of certificate on the a tuple with format (Name, Cartao de Cidadao number)
+        """
+        if not certificate:
+            certificate = self.get_certificate()
+
+        subject = certificate.get_subject()
+        return (subject.CN, subject.serialNumber[2:-1])
 
     def get_certificate(self, label = CartaoDeCidadaoLabel.SIGNATURE_CERT):
         """
