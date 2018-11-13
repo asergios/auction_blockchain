@@ -146,3 +146,8 @@ class CartaoDeCidadao:
 
 
 
+cc = CartaoDeCidadao()
+cc.scan()
+print(cc.get_identity())
+
+

@@ -1,6 +1,7 @@
 import os
 import socket
 import json
+import base64
 from cartaodecidadao import CartaoDeCidadao
 
 colors = {
@@ -13,7 +14,12 @@ colors = {
 UDP_IP = "127.0.0.1"									# Assuming the servers will be local
 UDP_PORT_MANAGER = 5001									# Port used for communication with auction manager
 UDP_PORT_REPOSITORY = 5002								# Port used for communication with auction repository
+
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)	# Socket used for communication
+sock.connect((UDP_IP, UDP_PORT_MANAGER))
+
+cc = CartaoDeCidadao()
+cc.scan()
 
 def colorize(string, color):
 	if not color in colors: return string
@@ -69,7 +75,7 @@ def create_new_auction():
 	# Auction bids limit per bidder
 	while True:
 		try:
-			new_auction['BID_LIMIT'] = int(input("Limit of Bids per Bidder (0 for no limit): "))
+			new_auction['BID_LIMIT'] = int(input("Limit time for new bids (minutes): "))
 		except ValueError:
 			print( colorize('Limit must be a number!', 'red') )
 			continue
@@ -79,6 +85,7 @@ def create_new_auction():
 			else:
 				print( colorize('Please pick a positive number.', 'red') )
 	
+	'''
 	# Auction Bidders Accepted
 	while True:
 		print(colorize('Do you wish to filter bidders that can play? [y/N]?', 'green'))
@@ -104,10 +111,26 @@ def create_new_auction():
 		elif(choice.upper() == "N" or choice == ""):
 			break
 
-	new_auction["ACTION"] = "CREATE"
-	sock.sendto(str(json.dumps(new_auction)).encode("UTF-8"), (UDP_IP, UDP_PORT_MANAGER))	# Sending New Auction Request For Auction Manager TODO: do we assume he received?
+	'''
 
-	print( colorize("Auction succesfully created!", 'pink') )	
+	new_auction["ACTION"] = "CREATE"
+
+	# Covert to JSON string
+	new_auction = json.dumps(new_auction) 
+
+	# Signing and creating outter layer of JSON message
+	signed_message = cc.sign( new_auction )
+	outter_message = {"SIGNATURE": base64.urlsafe_b64encode( signed_message ).decode(),
+				      "MESSAGE" : new_auction }
+
+	sock.send( json.dumps(outter_message).encode() )	# Sending New Auction Request For Auction Manager
+
+	# validate
+	#received = json.dumps(outter_message).encode()
+	#received = json.loads(received)
+	#print( cc.verify_signature(base64.urlsafe_b64decode(received['SIGNATURE'].encode()), received['MESSAGE']) )
+
+	print( colorize("Auction succesfully created!", 'pink') )
 	input("Press any key to continue...")
 	pass
 
