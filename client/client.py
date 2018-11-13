@@ -137,7 +137,7 @@ menu = [
 def main():
 	while True:
 		os.system('clear')													# Clear the terminal
-		ascii = open('ascii', 'r')											# Reading the sick ascii art
+		ascii = open('security2018-p1g1/common/ascii', 'r')											# Reading the sick ascii art
 		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 		ascii.close()
 		print('\n')
