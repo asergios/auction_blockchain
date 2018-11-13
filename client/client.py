@@ -2,7 +2,7 @@ import os
 import socket
 import json
 import base64
-from cartaodecidadao import CartaoDeCidadao
+from ..cartaodecidadao import CartaoDeCidadao
 
 
 colors = {
