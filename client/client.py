@@ -1,7 +1,7 @@
 import os
 import socket
 import json
-from cartaodecidadao import CartaoDeCidadao
+from ..cartaodecidadao import CartaoDeCidadao
 
 colors = {
 		'blue': '\033[94m',
