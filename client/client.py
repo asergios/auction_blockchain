@@ -16,15 +16,28 @@ UDP_IP = "127.0.0.1"									# Assuming the servers will be local
 UDP_PORT_MANAGER = 5001									# Port used for communication with auction manager
 UDP_PORT_REPOSITORY = 5002								# Port used for communication with auction repository
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)	# Socket used for communication
-sock.connect((UDP_IP, UDP_PORT_MANAGER))
+sock_manager = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)	# Socket used for communication with manager
+sock_manager.connect((UDP_IP, UDP_PORT_MANAGER))
+
+sock_repository = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)	# Socket used for communication with repository
+sock_repository.connect((UDP_IP, UDP_PORT_REPOSITORY))
 
 cc = CartaoDeCidadao()
-cc.scan()
+
 
 def colorize(string, color):
 	if not color in colors: return string
 	return colors[color] + string + '\033[0m'
+
+def wait_for_answer(sock):
+	while True:
+		try:
+			data, addr = sock.recvfrom(1024)
+			if data:
+				return data
+		except:
+			print( colorize("Unable to connect with server, please try again later.", 'red') )
+			quit()
 
 def create_new_auction():
 	'''
@@ -37,10 +50,36 @@ def create_new_auction():
 			"TITLE": "_____",						# Title of the auction
 			"DESCRIPTION": "_____",					# Description of the auction
 			"TYPE": ___,							# Type of the auction 1 being english auction and 2 being blind auction
-			"BID_LIMIT": ___,						# Limit of bids allowed per bidder, this value will be 0 if no limit is applied
-			"ALLOWED_BIDDERS": [___, ___, ...]		# Allowed bidder to participate on this auction, the filter is done by the CC number
+			"BID_LIMIT": ___,						# Time limit for new bids
 		}
 	'''
+	# Scanning user CartaoDeCidadao
+	cc.scan()
+
+	# Establish connection with server
+	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
+	challenge = os.urandom(64)
+	connection = {"CHALLENGE": base64.urlsafe_b64encode( challenge ).decode() ,\
+	 			  "CERTIFICATE": base64.urlsafe_b64encode( cc.get_certificate_raw() ).decode() }
+	connection = json.dumps(connection)
+	sock_manager.send( json.dumps(connection).encode() )
+	server_answer = json.loads( wait_for_answer(sock_manager) )
+
+	'''
+		I will be expecting an answer in this format:
+		{
+			"CHALLENGE_RESPONSE": // Signed challenge with server private key
+			"CERTIFICATE":		 // Certificate of public key of the server
+			"NONCE":			// random nonce, 128 bits should be ideal | os.urandom(128)
+		}
+		// I am expecting everything to be encoded with base64.urlsafe_b64encode( {<content>} ).decode()
+	'''
+
+	# Verify server certificate, verify signature of challenge and decode NONCE
+	cc.verify_certificate( base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() ) )
+	cc.verify_signature( base64.urlsafe_b64decode(server_answer['CHALLENGE_RESPONSE'].encode() ), challenge )
+	server_answer["NONCE"] = base64.urlsafe_b64decode( server_answer["NONCE"].encode() )
+
 	new_auction = {}
 
 	# Auction Title
@@ -85,51 +124,20 @@ def create_new_auction():
 				break
 			else:
 				print( colorize('Please pick a positive number.', 'red') )
-	
-	'''
-	# Auction Bidders Accepted
-	while True:
-		print(colorize('Do you wish to filter bidders that can play? [y/N]?', 'green'))
-		choice = input(">> ")
-
-		if(choice.upper() == "Y"):
-			new_auction['ALLOWED_BIDDERS'] = []
-			while True:
-				try:
-					cc_number = int( input("Insert CC of allowed bidder (0 to finish): ") )
-				except ValueError:
-					print( colorize('CC number must be a number!', 'red') )
-					continue
-				else:
-					# TODO: more cc number validation
-					if (cc_number == 0):
-						break
-					else:
-						new_auction['ALLOWED_BIDDERS'].append(cc_number)
-						print( colorize('Allowed Bidders:' + str(new_auction['ALLOWED_BIDDERS']),'green') )
-			break
-
-		elif(choice.upper() == "N" or choice == ""):
-			break
-
-	'''
 
 	new_auction["ACTION"] = "CREATE"
+	new_auction["NONCE"] = server_answer["NONCE"]
 
 	# Covert to JSON string
-	new_auction = json.dumps(new_auction) 
+	new_auction = json.dumps(new_auction)
 
 	# Signing and creating outter layer of JSON message
 	signed_message = cc.sign( new_auction )
 	outter_message = {"SIGNATURE": base64.urlsafe_b64encode( signed_message ).decode(),
-				      "MESSAGE" : new_auction }
+				      "MESSAGE" : new_auction,
+					  "NONCE" : server_answer["NONCE"] }
 
-	sock.send( json.dumps(outter_message).encode() )	# Sending New Auction Request For Auction Manager
-
-	# validate
-	#received = json.dumps(outter_message).encode()
-	#received = json.loads(received)
-	#print( cc.verify_signature(base64.urlsafe_b64decode(received['SIGNATURE'].encode()), received['MESSAGE']) )
+	sock_manager.send( json.dumps(outter_message).encode() )	# Sending New Auction Request For Auction Manager
 
 	print( colorize("Auction succesfully created!", 'pink') )
 	input("Press any key to continue...")
@@ -155,8 +163,6 @@ menu = [
     { "List open auctions [Blind Auction]": list_blind_auction },
     { "Exit": exit },
 ]
-
-
 
 def main():
 	while True:

@@ -7,8 +7,8 @@ from OpenSSL import crypto
 from pkcs11.constants import Attribute
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256, SHA
-from Crypto.Signature import PKCS1_v1_5 
-from base64 import b64decode 
+from Crypto.Signature import PKCS1_v1_5
+from base64 import b64decode
 
 import chardet
 
@@ -78,6 +78,13 @@ class CartaoDeCidadao:
         sig_certificate = next(self.session.get_objects({Attribute.LABEL: label}))
         return crypto.load_certificate(crypto.FILETYPE_ASN1, sig_certificate[Attribute.VALUE])
 
+    def get_certificate_raw(self, label = CartaoDeCidadaoLabel.SIGNATURE_CERT):
+        """
+            Get Certificate From Citizen Card (Returns raw)
+        """
+        sig_certificate = next(self.session.get_objects({Attribute.LABEL: label}))
+        return sig_certificate[Attribute.VALUE]
+
     def get_private_key(self, label = CartaoDeCidadaoLabel.SIGNATURE_KEY):
         """
             Gets Signature Private Key form Citizen Card (Returns pkcs11.PrivateKey Object)
@@ -108,17 +115,24 @@ class CartaoDeCidadao:
         rsakey = RSA.importKey(public_key)
         signer = PKCS1_v1_5.new(rsakey)
 
-        digest = SHA.new() 
-        digest.update(data.encode('utf-8')) 
-        
+        digest = SHA.new()
+        digest.update(data.encode('utf-8'))
+
         return signer.verify(digest, signature)
 
     def verify_certificate(self, certificate = None):
         """
-           Validated certificate via chain of trust 
+           Validated certificate via chain of trust
         """
         if not certificate:
-            certificate = self.get_certificate()
+            certificate = self.get_certificate_raw()
+
+        # PEM FORMAT
+        if (certificate.startswith( b'-----BEGIN CERTIFICATE-----' )):
+            certificate = crypto.load_certificate(crypto.FILETYPE_PEM, certificate)
+        # ASN1 FORMAT
+        else:
+            certificate = crypto.load_certificate(crypto.FILETYPE_ASN1, certificate)
 
         store = crypto.X509Store()
 
@@ -137,17 +151,9 @@ class CartaoDeCidadao:
             except Exception as e:
                 print("Error reading certificate: ", filename)
                 continue
-            
+
         store_ctx = crypto.X509StoreContext(store, certificate)
-        
+
         result = store_ctx.verify_certificate()
-        
-        return True if not result else False 
 
-
-
-cc = CartaoDeCidadao()
-cc.scan()
-print(cc.get_identity())
-
-
+        return True if not result else False
