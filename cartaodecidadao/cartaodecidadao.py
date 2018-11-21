@@ -24,7 +24,7 @@ class CartaoDeCidadao:
 
     label = "CARTAO DE CIDADAO"
 
-    def __init__(self, lib_location = "/usr/lib/libpteidpkcs11.so"):
+    def __init__(self, lib_location = "/usr/local/lib/libpteidpkcs11.so"):
         """
             Cartao de Cidadao constructor, starts by initialising PKCS#11 library and class variables
         """
