@@ -59,7 +59,7 @@ def create_new_auction():
 	# Establish connection with server
 	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
 	challenge = os.urandom(64)
-	connection = {"CHALLENGE": base64.urlsafe_b64encode( challenge ).decode() ,\
+	connection = {"ACTION": "CHALLENGE", "CHALLENGE": base64.urlsafe_b64encode( challenge ).decode() ,\
 	 			  "CERTIFICATE": base64.urlsafe_b64encode( cc.get_certificate_raw() ).decode() }
 	connection = json.dumps(connection)
 	sock_manager.send( json.dumps(connection).encode() )
