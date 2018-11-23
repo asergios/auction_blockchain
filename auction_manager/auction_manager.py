@@ -8,7 +8,7 @@ from cryptography.hazmat.backends import default_backend
 from OpenSSL import crypto
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
-from ..cartaodecidadao import CartaoDeCidadao
+#from ..cartaodecidadao import CartaoDeCidadao
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('AM')
@@ -22,13 +22,13 @@ class OpenConnections:
     def __init__(self):
         self.nonce = 0
         self.openConns = {}
-    
+
     def add(self, certificate):
         self.openConns[self.nonce] = (certificate)
-        rv = self.nouce
+        rv = self.nonce
         self.nonce += 1
         return rv
-    
+
     def get(self, nonce):
         return self.openConns[nonce]
 
@@ -37,7 +37,7 @@ def main():
     backend = default_backend() # VER
     pk = loadPrivateKey("security2018-p1g1/auction_manager/keys/private_key.pem")
     cert = loadCertificate("security2018-p1g1/auction_manager/keys/manager.crt", backend)
-    oc = OpenConnections() 
+    oc = OpenConnections()
     #switch case para tratar de mensagens
     mActions = {"CREATE":validateAuction,
                 "CHALLENGE": challengeResponse}
@@ -82,8 +82,8 @@ def challengeResponse(j, sock, addr, oc, pk, cert):
     logger.debug("CHALLENGE RESPONSE = %s", cr)
 
     reply = { "ACTION": "CHALLENGE_REPLY","CHALLENGE_RESPONSE": base64.urlsafe_b64decode(cr),
-              "CERTIFICATE": base64.urlsafe_b64decode(cert),     
-              "NONCE": nonce         
+              "CERTIFICATE": base64.urlsafe_b64decode(cert),
+              "NONCE": nonce
             }
 
     sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
@@ -98,13 +98,13 @@ def validateAuction(j, sock, addr, oc, pk, cert):
         reply["ERROR"] = "MISSING TITLE"
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
-    
+
     if "DESCRIPTION" not in j:
         reply["STATE"] = "NOT OK"
         reply["ERROR"] = "MISSING DESCRIPTION"
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
-    
+
     #ver tipos de leiloes
     if "TYPE" not in j:
         reply["STATE"] = "NOT OK"
@@ -117,7 +117,7 @@ def validateAuction(j, sock, addr, oc, pk, cert):
         reply["ERROR"] = "MISSING BID_LIMIT"
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
-    
+
     #usar o 0 para bid infinita --> não numero limite de bids
     bid_limit = j["BID_LIMIT"]
     if bid_limit < 0:
@@ -132,7 +132,7 @@ def validateAuction(j, sock, addr, oc, pk, cert):
         reply["ERROR"] = "MISSING ALLOWED_BIDDERS"
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
-    
+
     reply["STATE"] = "OK"
     sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
 

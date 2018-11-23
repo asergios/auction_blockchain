@@ -2,7 +2,8 @@ import os
 import socket
 import json
 import base64
-from ..cartaodecidadao import CartaoDeCidadao
+from .cartaodecidadao import CartaoDeCidadao
+from ..common.certmanager import CertManager
 
 
 colors = {
@@ -29,6 +30,10 @@ def colorize(string, color):
 	if not color in colors: return string
 	return colors[color] + string + '\033[0m'
 
+def verify_server(certificate, message, signature):
+	cm = CertManager(cert = certificate)
+	return  cm.verify_certificate() and cm.verify_signature( signature , message )
+
 def wait_for_answer(sock):
 	while True:
 		try:
@@ -39,7 +44,7 @@ def wait_for_answer(sock):
 			print( colorize("Unable to connect with server, please try again later.", 'red') )
 			quit()
 
-def create_new_auction():
+def create_new_auction(*arg):
 	'''
 		Creates new auction via auction manager
 
@@ -76,10 +81,13 @@ def create_new_auction():
 	'''
 
 	# Verify server certificate, verify signature of challenge and decode NONCE
-	cc.verify_certificate( base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() ) )
-	cc.verify_signature( base64.urlsafe_b64decode(server_answer['CHALLENGE_RESPONSE'].encode() ), challenge )
-	server_answer["NONCE"] = base64.urlsafe_b64decode( server_answer["NONCE"].encode() )
+	certificate = base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() )
+	challenge_response = base64.urlsafe_b64decode(server_answer['CHALLENGE_RESPONSE'].encode() )
+	if not verify_server( certificate, challenge, challenge_response ):
+		print( colorize('Server Validation Failed!', 'red') )
+		quit()
 
+	server_answer["NONCE"] = base64.urlsafe_b64decode( server_answer["NONCE"].encode() )
 	new_auction = {}
 
 	# Auction Title
@@ -137,37 +145,69 @@ def create_new_auction():
 				      "MESSAGE" : new_auction,
 					  "NONCE" : server_answer["NONCE"] }
 
-	sock_manager.send( json.dumps(outter_message).encode() )	# Sending New Auction Request For Auction Manager
+	sock_manager.send( json.dumps(outter_message).encode("UTF-8") )	# Sending New Auction Request For Auction Manager
 
 	print( colorize("Auction succesfully created!", 'pink') )
 	input("Press any key to continue...")
 	pass
 
-def list_english_auction():
+def list_auction(auction_type, auction_id = None):
 	'''
 		Requests english auctions to auction repository
-	'''
-	pass
 
-def list_blind_auction():
+		JSON sent to Auction Repository Description:
+
+		{
+			"ACTION" : "ENGLISH/BLIND",
+			(Optional) "AUCTION_ID" : XX
+		}
 	'''
-		Requests blind auctions to auction repository
+
+	request = {"ACTION" : auction_type}
+
+	if auction_id:
+		request["AUCTION_ID"] = auction_id
+
+	# Covert to JSON string
+	request = json.dumps(request)
+	# Send request to repository
+	sock_repository.send(request.encode("UTF-8"))
+	# Waiting for server response
+	server_answer = json.loads( wait_for_answer(sock_repository) )
+
 	'''
+		I will be expecting an answer in this format:
+		{
+			"SIGNED_LIST": 		// Signed list of english auctions
+			"CERTIFICATE":		// Certificate of public key of the server
+			"LIST":				// Raw List of Auctions
+		}
+	'''
+
+	# Verify server certificate and verify signature of auction list
+	certificate = base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() )
+	signature = base64.urlsafe_b64decode(server_answer['SIGNED_LIST'].encode() )
+	plain = base64.urlsafe_b64decode(server_answer['LIST'].encode() )
+	if not verify_server( certificate, plain, signature ):
+		print( colorize('Server Validation Failed!', 'red') )
+		quit()
+
+	# TODO: rest of this
 	pass
 
 
 # Menu to be printed to the user
 menu = [
-    { "Create new auction": create_new_auction },
-    { "List open auctions [English Auction]": list_english_auction },
-    { "List open auctions [Blind Auction]": list_blind_auction },
+    { "Create new auction": (create_new_auction, None) },
+    { "List open auctions [English Auction]": (list_auction, "ENGLISH") },
+    { "List open auctions [Blind Auction]": (list_auction, "BLIND") },
     { "Exit": exit },
 ]
 
 def main():
 	while True:
 		os.system('clear')													# Clear the terminal
-		ascii = open('security2018-p1g1/common/ascii', 'r')											# Reading the sick ascii art
+		ascii = open('security2018-p1g1/common/ascii', 'r')					# Reading the sick ascii art
 		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 		ascii.close()
 		print('\n')
@@ -178,7 +218,7 @@ def main():
 
 		try:																# Reading the choice
 			if int(choice) <= 0 : raise ValueError
-			list(menu[int(choice) - 1].values())[0]()
+			list(menu[int(choice) - 1].values())[0][0](list(menu[int(choice) - 1].values())[0][1])
 		except (ValueError, IndexError):
 			pass
 

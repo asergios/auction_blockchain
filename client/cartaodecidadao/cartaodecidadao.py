@@ -10,7 +10,6 @@ from Crypto.Hash import SHA256, SHA
 from Crypto.Signature import PKCS1_v1_5
 from base64 import b64decode
 
-import chardet
 
 
 class CartaoDeCidadaoLabel:
@@ -24,7 +23,7 @@ class CartaoDeCidadao:
 
     label = "CARTAO DE CIDADAO"
 
-    def __init__(self, lib_location = "/usr/local/lib/libpteidpkcs11.so"):
+    def __init__(self, lib_location = "/usr/lib/libpteidpkcs11.so"):
         """
             Cartao de Cidadao constructor, starts by initialising PKCS#11 library and class variables
         """
