@@ -134,10 +134,7 @@ def create_new_auction(*arg):
 
 	new_auction["ACTION"] = "CREATE"
 	new_auction["NONCE"] = server_answer["NONCE"]
-
-	# Covert to JSON string
-	new_auction = json.dumps(new_auction)
-
+	
 	# Signing and creating outter layer of JSON message
 	signed_message = cc.sign( new_auction )
 	outter_message = {"SIGNATURE": base64.urlsafe_b64encode( signed_message ).decode(),
