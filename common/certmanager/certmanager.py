@@ -16,10 +16,10 @@ class CertManager:
         if cert:
             if (cert.startswith( b'-----BEGIN CERTIFICATE-----' )):
                 self.cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
-                raw = crypto.dump_publickey(crypto.FILETYPE_PEM, cert.get_pubkey())
+                raw = crypto.dump_publickey(crypto.FILETYPE_PEM, self.cert.get_pubkey())
             else:
                 self.cert = crypto.load_certificate(crypto.FILETYPE_ASN1, cert)
-                raw = crypto.dump_publickey(crypto.FILETYPE_ASN1, cert.get_pubkey())
+                raw = crypto.dump_publickey(crypto.FILETYPE_ASN1, self.cert.get_pubkey())
 
             rsakey = RSA.importKey(raw)
             self.pub_key = PKCS1_v1_5.new(rsakey)
@@ -40,7 +40,8 @@ class CertManager:
                 return
             private_key = self.priv_key
 
-        return private_key.sign( data, mechanism = Mechanism.SHA1_RSA_PKCS )
+        h = SHA.new(data.encode("UTF-8"))
+        return private_key.sign( h )
 
     def verify_signature(self, signature, data, pub_key = None):
         """
@@ -51,7 +52,7 @@ class CertManager:
         if not pub_key:
             if not self.pub_key:
                 print("ERROR: no public key given")
-                return
+                return False
             public_key = self.pub_key
 
         digest = SHA.new()
@@ -68,7 +69,7 @@ class CertManager:
         if not cert:
             if not self.cert:
                 print("ERROR: no certificate given")
-                return
+                return False
             certificate = self.cert
 
         # PEM FORMAT
