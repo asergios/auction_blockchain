@@ -6,4 +6,4 @@ cd ..
 source venv/bin/activate
 echo -e "Execute client"
 cd ..
-python3 security2018-p1g1.client.client
+python3 -m security2018-p1g1.client.client security2018-p1g1/client/config.ini

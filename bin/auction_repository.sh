@@ -6,4 +6,4 @@ cd ..
 source venv/bin/activate
 echo -e "Execute auction repository"
 cd ..
-python3 security2018-p1g1.auction_repository.auction_repository
+python3 -m security2018-p1g1.auction_repository.auction_repository

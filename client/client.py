@@ -2,6 +2,8 @@ import os
 import socket
 import json
 import base64
+import configparser
+import sys
 from .cartaodecidadao import CartaoDeCidadao
 from ..common.certmanager import CertManager
 
@@ -23,7 +25,10 @@ sock_manager.connect((UDP_IP, UDP_PORT_MANAGER))
 sock_repository = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)	# Socket used for communication with repository
 sock_repository.connect((UDP_IP, UDP_PORT_REPOSITORY))
 
-cc = CartaoDeCidadao()
+config = configparser.ConfigParser()
+config.read(sys.argv[1])
+
+cc = CartaoDeCidadao(config.get('pkcs11', 'pteidpkcs11'))
 
 
 def colorize(string, color):
