@@ -10,7 +10,6 @@ from common.certmanager import CertManager
 from common.logger import initialize_logger
 import logging
 
-opener = "open" if sys.platform == "darwin" else "xdg-open"
 
 initialize_logger()
 
@@ -193,10 +192,20 @@ def create_new_auction(*arg):
 	choice = choice.upper()
 
 	if(choice.startswith("Y")):
+		platform = sys.platform
 		try:
-			os.startfile('code.txt')
+			# linux platform
+			if(platform == "linux"): subprocess.call(['xdg-open', 'code.txt'])
+			# mac platform
+			elif(platform == "darwin"): subprocess.call(['open', 'code.txt'])
+			# windows platform
+			elif(platform == "windows"): os.startfile('code.txt')
+			else:
+				print("Please Edit Code To Upload on code.txt file.")
 		except:
-			subprocess.call([opener, 'code.txt'])
+			print( colorize("ERROR: Unable to open code upload file.", 'red') )
+			quit()
+
 		input("Press any key when code is ready to upload...")
 		with open('code.txt', 'r') as f:
 		    new_auction["CODE"] = [line.rstrip('\n') for line in f]
