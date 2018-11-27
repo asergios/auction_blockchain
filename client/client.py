@@ -3,6 +3,7 @@ import socket
 import json
 import base64
 import sys
+import platform
 import subprocess
 from cartaodecidadao import CartaoDeCidadao
 sys.path.append("..")	# In order to access modules of previous folder
@@ -192,14 +193,14 @@ def create_new_auction(*arg):
 	choice = choice.upper()
 
 	if(choice.startswith("Y")):
-		platform = sys.platform
+		platform = platform.system()
 		try:
 			# linux platform
-			if(platform == "linux"): subprocess.call(['xdg-open', 'code.txt'])
+			if(platform == "Linux"): subprocess.call(['xdg-open', 'code.txt'])
 			# mac platform
-			elif(platform == "darwin"): subprocess.call(['open', 'code.txt'])
+			elif(platform == "Darwin"): subprocess.call(['open', 'code.txt'])
 			# windows platform
-			elif(platform == "windows"): os.startfile('code.txt')
+			elif(platform == "Windows"): os.startfile('code.txt')
 			else:
 				print("Please Edit Code To Upload on code.txt file.")
 		except:
