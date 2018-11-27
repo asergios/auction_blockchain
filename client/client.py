@@ -5,7 +5,10 @@ import base64
 import sys
 from .cartaodecidadao import CartaoDeCidadao
 from ..common.certmanager import CertManager
+from ..common.logger import initialize_logger
+import logging
 
+initialize_logger('.')
 
 colors = {
 		'blue': '\033[94m',
@@ -75,26 +78,33 @@ def create_new_auction(*arg):
 		}
 	'''
 	# Scanning user CartaoDeCidadao
+	logging.info("Reading User's Cartao De Cidadao")
 	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
 	cc.scan()
 	clean()
 
 	# Establish connection with server
 	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
+	logging.info("Trying to establishing connection with server")
 
 	# Sending challenge to the server
 	challenge = os.urandom(64)
 	connection = {"ACTION": "CHALLENGE", "CHALLENGE": base64.urlsafe_b64encode( challenge ).decode() ,\
 	 			  "CERTIFICATE": base64.urlsafe_b64encode( cc.get_certificate_raw() ).decode() }
 	sock_manager.send( json.dumps(connection).encode("UTF-8") )
+	logging.info("Sent Challenge To Server: " + json.dumps(connection))
 
 	# Wait for Challenge Response
 	server_answer = json.loads( wait_for_answer(sock_manager) )
+	logging.info("Received Answer From Server: " + json.dumps(server_answer))
 
 	# Verify server certificate, verify signature of challenge and decode NONCE
 	certificate = base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() )
 	challenge_response = base64.urlsafe_b64decode(server_answer['CHALLENGE_RESPONSE'].encode() )
+	logging.info("Verifying certificate and server signature of challenge")
+
 	if not verify_server( certificate, challenge, challenge_response ):
+		logging.warning("Server Verification Failed")
 		print( colorize('Server Validation Failed!', 'red') )
 		input("Press any key to continue...")
 
@@ -155,17 +165,21 @@ def create_new_auction(*arg):
 	new_auction = json.dumps(new_auction)
 
 	# Signing and creating outter layer of JSON message
+	logging.info("Singning Message To Send Server")
 	signed_message = cc.sign( new_auction.encode('UTF-8') )
 	outter_message = {"SIGNATURE": base64.urlsafe_b64encode( signed_message ).decode(),
 				      "MESSAGE" : new_auction,
 					  "ACTION" : "CREATE" }
 
 	# Sending New Auction Request For Auction Manager
+	logging.info("Sending Request To Server:" + json.dumps(outter_message))
 	sock_manager.send( json.dumps(outter_message).encode("UTF-8") )
 
 	# Wait for Server Response
+	logging.info("Waiting for server response")
 	print( colorize( "Creating Auction, please wait...", 'pink' ) )
 	server_answer = json.loads( wait_for_answer(sock_manager) )
+	logging.info("Received Server Response: " + json.dumps(server_answer))
 
 	if (server_answer["STATE"] == "OK"):
 		clean()
