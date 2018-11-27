@@ -5,14 +5,13 @@ import base64
 import sys
 import platform
 import subprocess
-from cartaodecidadao import CartaoDeCidadao
-sys.path.append("..")	# In order to access modules of previous folder
-from common.certmanager import CertManager
-from common.logger import initialize_logger
+from .cartaodecidadao import CartaoDeCidadao
+from ..common.certmanager import CertManager
+from ..common.logger import initialize_logger
 import logging
 
 
-initialize_logger()
+initialize_logger("security2018-p1g1/client")
 
 colors = {
 		'blue': '\033[94m',
@@ -193,14 +192,14 @@ def create_new_auction(*arg):
 	choice = choice.upper()
 
 	if(choice.startswith("Y")):
-		platform = platform.system()
+		plat = platform.system()
 		try:
 			# linux platform
-			if(platform == "Linux"): subprocess.call(['xdg-open', 'code.txt'])
+			if(plat == "Linux"): subprocess.call(['xdg-open', 'security2018-p1g1/client/code.txt'])
 			# mac platform
-			elif(platform == "Darwin"): subprocess.call(['open', 'code.txt'])
+			elif(plat == "Darwin"): subprocess.call(['open', 'security2018-p1g1/client/code.txt'])
 			# windows platform
-			elif(platform == "Windows"): os.startfile('code.txt')
+			elif(plat == "Windows"): os.startfile('security2018-p1g1/client/code.txt')
 			else:
 				print("Please Edit Code To Upload on code.txt file.")
 		except:
@@ -208,7 +207,7 @@ def create_new_auction(*arg):
 			quit()
 
 		input("Press any key when code is ready to upload...")
-		with open('code.txt', 'r') as f:
+		with open('security2018-p1g1/client/code.txt', 'r') as f:
 		    new_auction["CODE"] = [line.rstrip('\n') for line in f]
 
 	elif(choice.startswith("M")):
@@ -309,7 +308,7 @@ menu = [
 def main():
 	while True:
 		os.system('clear')													# Clear the terminal
-		ascii = open('../common/ascii', 'r')								# Reading the sick ascii art
+		ascii = open('security2018-p1g1/common/ascii', 'r')								# Reading the sick ascii art
 		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 		ascii.close()
 		print('\n')
