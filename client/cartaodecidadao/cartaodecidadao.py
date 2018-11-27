@@ -23,10 +23,19 @@ class CartaoDeCidadao:
 
     label = "CARTAO DE CIDADAO"
 
-    def __init__(self, lib_location = "/usr/lib/libpteidpkcs11.so"):
+    def __init__(self, lib_location = None):
         """
             Cartao de Cidadao constructor, starts by initialising PKCS#11 library and class variables
         """
+        if not lib_location:
+            if os.path.isfile('/usr/local/lib/libpteidpkcs11.so'):
+                lib_location = '/usr/local/lib/libpteidpkcs11.so'
+            elif os.path.isfile('/usr/lib/libpteidpkcs11.so'):
+                lib_location = '/usr/lib/libpteidpkcs11.so'
+            else:
+                print("ERROR: libpteidpkcs11 not found!")
+                quit()
+
         self.lib = pkcs11.lib( lib_location )   # Initialise PKCS#11 library
         self.session = None
 

@@ -40,7 +40,7 @@ class CertManager:
                 return
             private_key = self.priv_key
 
-        h = SHA.new(data.encode("UTF-8"))
+        h = SHA.new(data)
         return private_key.sign( h )
 
     def verify_signature(self, signature, data, pub_key = None):
@@ -56,7 +56,7 @@ class CertManager:
             public_key = self.pub_key
 
         digest = SHA.new()
-        digest.update(data.encode('utf-8'))
+        digest.update(data)
 
         return public_key.verify(digest, signature)
 
@@ -72,17 +72,10 @@ class CertManager:
                 return False
             certificate = self.cert
 
-        # PEM FORMAT
-        if (certificate.startswith( b'-----BEGIN CERTIFICATE-----' )):
-            certificate = crypto.load_certificate(crypto.FILETYPE_PEM, certificate)
-        # ASN1 FORMAT
-        else:
-            certificate = crypto.load_certificate(crypto.FILETYPE_ASN1, certificate)
-
         store = crypto.X509Store()
 
-        for filename in os.listdir('./certs'):
-            f = open('./certs/' + filename, 'rb')
+        for filename in os.listdir('./security2018-p1g1/common/certmanager/certs'):
+            f = open('./security2018-p1g1/common/certmanager/certs/' + filename, 'rb')
             cert_text = f.read()
             try:
                 # PEM FORMAT
