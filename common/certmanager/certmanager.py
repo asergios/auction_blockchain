@@ -74,8 +74,8 @@ class CertManager:
 
         store = crypto.X509Store()
 
-        for filename in os.listdir('./security2018-p1g1/common/certmanager/certs'):
-            f = open('./security2018-p1g1/common/certmanager/certs/' + filename, 'rb')
+        for filename in os.listdir('../common/certmanager/certs'):
+            f = open('../common/certmanager/certs/' + filename, 'rb')
             cert_text = f.read()
             try:
                 # PEM FORMAT

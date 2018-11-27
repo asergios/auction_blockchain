@@ -3,12 +3,13 @@ import socket
 import json
 import base64
 import sys
-from .cartaodecidadao import CartaoDeCidadao
-from ..common.certmanager import CertManager
-from ..common.logger import initialize_logger
+from cartaodecidadao import CartaoDeCidadao
+sys.path.append("..")	# In order to access modules of previous folder
+from common.certmanager import CertManager
+from common.logger import initialize_logger
 import logging
 
-initialize_logger('.')
+initialize_logger()
 
 colors = {
 		'blue': '\033[94m',
@@ -17,32 +18,49 @@ colors = {
 		'red' : '\033[91m'
 		}
 
-UDP_IP = "127.0.0.1"									# Assuming the servers will be local
-UDP_PORT_MANAGER = 5001									# Port used for communication with auction manager
-UDP_PORT_REPOSITORY = 5002								# Port used for communication with auction repository
+UDP_IP = "127.0.0.1"				# Assuming the servers will be local
+UDP_PORT_MANAGER = 5001				# Port used for communication with auction manager
+UDP_PORT_REPOSITORY = 5002			# Port used for communication with auction repository
 
-sock_manager = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)	# Socket used for communication with manager
+# Socket used for communication with manager
+sock_manager = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_manager.connect((UDP_IP, UDP_PORT_MANAGER))
 
-sock_repository = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)	# Socket used for communication with repository
+# Socket used for communication with repository
+sock_repository = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_repository.connect((UDP_IP, UDP_PORT_REPOSITORY))
 
 cc = CartaoDeCidadao()
 
-def clean(times = 1):
-	for i in range(0, times):
-		sys.stdout.write("\033[F")
+def clean(clean = False, lines = 2):
+	'''
+		Cleans previous lines on terminal
+	'''
+	if clean:
 		sys.stdout.write("\033[K")
+		return
+
+	sys.stdout.write("\033[" + str(lines) + "F")
+	sys.stdout.write("\033[K")
 
 def colorize(string, color):
+	'''
+		Colorize String For Terminal
+	'''
 	if not color in colors: return string
 	return colors[color] + string + '\033[0m'
 
 def verify_server(certificate, message, signature):
+	'''
+		Verify Server Certificate and Signature
+	'''
 	cm = CertManager(cert = certificate)
 	return  cm.verify_certificate() and cm.verify_signature( signature , message )
 
 def wait_for_answer(sock):
+	'''
+		Waits for a response from server
+	'''
 	while True:
 		try:
 			data, addr = sock.recvfrom(4096)
@@ -81,7 +99,7 @@ def create_new_auction(*arg):
 	logging.info("Reading User's Cartao De Cidadao")
 	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
 	cc.scan()
-	clean()
+	clean(lines = 1)
 
 	# Establish connection with server
 	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
@@ -96,7 +114,7 @@ def create_new_auction(*arg):
 
 	# Wait for Challenge Response
 	server_answer = json.loads( wait_for_answer(sock_manager) )
-	logging.info("Received Answer From Server: " + json.dumps(server_answer))
+	logging.info("Received Challenge Response: " + json.dumps(server_answer))
 
 	# Verify server certificate, verify signature of challenge and decode NONCE
 	certificate = base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() )
@@ -110,24 +128,27 @@ def create_new_auction(*arg):
 
 	new_auction = {}
 
-	clean()
+	clean(lines = 1)
+
 	# Auction Title
 	while True:
 		new_auction["TITLE"] = input("Title: ")
 		if new_auction['TITLE'] != "":
+			clean(True)
 			break
 		else:
-			clean()
 			print( colorize('Title can\'t be empty!', 'red') )
+			clean()
 
 	# Auction Description
 	while True:
 		new_auction['DESCRIPTION'] = input("Description: ")
 		if new_auction['DESCRIPTION'] != "":
+			clean(True)
 			break
 		else:
-			clean()
 			print( colorize('Description can\'t be empty!', 'red') )
+			clean()
 
 	# Auction Type
 	while True:
@@ -135,30 +156,32 @@ def create_new_auction(*arg):
 		try:
 			new_auction['TYPE'] = int(input("Type: "))
 		except ValueError:
-			clean(4)
 			print( colorize('Type must be a number!', 'red') )
+			clean(lines=5)
 			continue
 		else:
 			if new_auction['TYPE'] == 1 or new_auction['TYPE'] == 2:
+				clean(True)
 				break
 			else:
-				clean()
 				print( colorize('Please pick one of the available types.', 'red') )
+				clean(lines=5)
 
 	# Auction bids limit per bidder
 	while True:
 		try:
 			new_auction['BID_LIMIT'] = int(input("Limit time for new bids (minutes): "))
 		except ValueError:
-			clean()
 			print( colorize('Limit must be a number!', 'red') )
+			clean()
 			continue
 		else:
 			if new_auction['BID_LIMIT'] >= 0:
+				clean(True)
 				break
 			else:
-				clean()
 				print( colorize('Please pick a positive number.', 'red') )
+				clean()
 
 	new_auction["ACTION"] = "CREATE"
 	new_auction["NONCE"] = server_answer["NONCE"]
@@ -182,15 +205,15 @@ def create_new_auction(*arg):
 	logging.info("Received Server Response: " + json.dumps(server_answer))
 
 	if (server_answer["STATE"] == "OK"):
-		clean()
+		clean(lines=1)
 		print( colorize("Auction succesfully created!", 'pink') )
 		input("Press any key to continue...")
 	elif (server_answer["STATE"] == "NOT OK"):
-		clean()
+		clean(lines=1)
 		print( colorize("ERROR: " + server_answer["ERROR"], 'red') )
 		input("Press any key to continue...")
 	else:
-		clean()
+		clean(lines=1)
 		print( colorize("Something really weird happen, please fill a bug report.", 'red') )
 		input("Press any key to continue...")
 
@@ -251,7 +274,7 @@ menu = [
 def main():
 	while True:
 		os.system('clear')													# Clear the terminal
-		ascii = open('security2018-p1g1/common/ascii', 'r')					# Reading the sick ascii art
+		ascii = open('../common/ascii', 'r')								# Reading the sick ascii art
 		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 		ascii.close()
 		print('\n')
