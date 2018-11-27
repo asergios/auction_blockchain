@@ -8,7 +8,6 @@ from cryptography.hazmat.backends import default_backend
 from OpenSSL import crypto
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
-#from ..cartaodecidadao import CartaoDeCidadao
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('AM')
@@ -36,7 +35,7 @@ class OpenConnections:
 def main():
     backend = default_backend() # VER
     pk = loadPrivateKey("security2018-p1g1/auction_manager/keys/private_key.pem")
-    cert = loadCertificate("security2018-p1g1/auction_manager/keys/manager.crt", backend)
+    cert = loadCertificateRaw("security2018-p1g1/auction_manager/keys/manager.crt")
     oc = OpenConnections()
     #switch case para tratar de mensagens
     mActions = {"CREATE":validateAuction,
@@ -49,7 +48,6 @@ def main():
         #logger.debug("DATA = %s", data)
         ## FIX ME
         j = json.loads(data)
-        j = json.loads(j)
         logger.debug("JSON = %s", j)
         logger.debug("ACTION = %s", j['ACTION'])
         mActions[j["ACTION"]](j, sock, addr, oc, pk, cert)
@@ -66,25 +64,26 @@ def loadCertificate(path, backend):
     cert = x509.load_pem_x509_certificate(crt_data, backend)
     return cert
 
+def loadCertificateRaw(path):
+    with open(path, 'rb') as f: crt_data = f.read()
+    return crt_data
+
 #responde ao challenge do cliente; retorna um nonce
 def challengeResponse(j, sock, addr, oc, pk, cert):
     logger.info("CHALLENGE")
-    challenge = base64.urlsafe_b64decode(j["CHALLENGE"])
-    certificate = base64.urlsafe_b64decode(j["CERTIFICATE"])
+    challenge = j["CHALLENGE"]
+    certificate = j["CERTIFICATE"]
 
     # cifrar o challenge com a chave privada
     encryptor = PKCS1_OAEP.new(pk)
-    cr = encryptor.encrypt(challenge)
+    cr = encryptor.encrypt(challenge.encode('utf-8'))
 
     nonce = oc.add(certificate)
 
-    logger.debug("NOUNCE = %d", nonce)
-    logger.debug("CHALLENGE RESPONSE = %s", cr)
-
-    reply = { "ACTION": "CHALLENGE_REPLY","CHALLENGE_RESPONSE": base64.urlsafe_b64decode(cr),
-              "CERTIFICATE": base64.urlsafe_b64decode(cert),
-              "NONCE": nonce
-            }
+    reply = { "ACTION": "CHALLENGE_REPLY","CHALLENGE_RESPONSE": base64.urlsafe_b64encode(cr).decode(),
+              "CERTIFICATE": base64.urlsafe_b64encode(cert).decode(),
+              "NONCE": nonce}
+    logger.debug("Reply = %s", reply)
 
     sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
 
