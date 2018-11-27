@@ -71,12 +71,12 @@ def loadCertificateRaw(path):
 #responde ao challenge do cliente; retorna um nonce
 def challengeResponse(j, sock, addr, oc, pk, cert):
     logger.info("CHALLENGE")
-    challenge = j["CHALLENGE"]
-    certificate = j["CERTIFICATE"]
+    challenge = base64.urlsafe_b64decode(j["CHALLENGE"])
+    certificate = base64.urlsafe_b64decode(j["CERTIFICATE"])
 
     # cifrar o challenge com a chave privada
     encryptor = PKCS1_OAEP.new(pk)
-    cr = encryptor.encrypt(challenge.encode('utf-8'))
+    cr = encryptor.encrypt(challenge)
 
     nonce = oc.add(certificate)
 
