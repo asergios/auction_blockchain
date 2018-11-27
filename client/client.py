@@ -3,11 +3,14 @@ import socket
 import json
 import base64
 import sys
+import subprocess
 from cartaodecidadao import CartaoDeCidadao
 sys.path.append("..")	# In order to access modules of previous folder
 from common.certmanager import CertManager
 from common.logger import initialize_logger
 import logging
+
+opener = "open" if sys.platform == "darwin" else "xdg-open"
 
 initialize_logger()
 
@@ -67,6 +70,7 @@ def wait_for_answer(sock):
 			if data:
 				return data
 		except:
+			logging.error("Failed to connect to server!")
 			print( colorize("Unable to connect with server, please try again later.", 'red') )
 			input("Press any key to continue...")
 			quit()
@@ -167,7 +171,7 @@ def create_new_auction(*arg):
 				print( colorize('Please pick one of the available types.', 'red') )
 				clean(lines=5)
 
-	# Auction bids limit per bidder
+	# Maxium time for new bids
 	while True:
 		try:
 			new_auction['BID_LIMIT'] = int(input("Limit time for new bids (minutes): "))
@@ -182,6 +186,24 @@ def create_new_auction(*arg):
 			else:
 				print( colorize('Please pick a positive number.', 'red') )
 				clean()
+
+
+	print("Do you wish to upload code for bid validation?")
+	choice = input("[y/N/manual] => ")
+	choice = choice.upper()
+
+	if(choice.startswith("Y")):
+		try:
+			os.startfile('code.txt')
+		except:
+			subprocess.call([opener, 'code.txt'])
+		input("Press any key when code is ready to upload...")
+		with open('code.txt', 'r') as f:
+		    new_auction["CODE"] = [line.rstrip('\n') for line in f]
+
+	elif(choice.startswith("M")):
+		# TODO: print guide
+		pass
 
 	new_auction["ACTION"] = "CREATE"
 	new_auction["NONCE"] = server_answer["NONCE"]
@@ -206,14 +228,17 @@ def create_new_auction(*arg):
 
 	if (server_answer["STATE"] == "OK"):
 		clean(lines=1)
+		logging.info("Auction Creating Was Succesful")
 		print( colorize("Auction succesfully created!", 'pink') )
 		input("Press any key to continue...")
 	elif (server_answer["STATE"] == "NOT OK"):
 		clean(lines=1)
+		logging.info("Auction Creating Failed : " + server_answer["ERROR"] )
 		print( colorize("ERROR: " + server_answer["ERROR"], 'red') )
 		input("Press any key to continue...")
 	else:
 		clean(lines=1)
+		logging.info("Auction Creating Failed With Unexpected Error ")
 		print( colorize("Something really weird happen, please fill a bug report.", 'red') )
 		input("Press any key to continue...")
 
