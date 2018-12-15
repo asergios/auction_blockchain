@@ -5,6 +5,9 @@ import random
 import time
 from Crypto.Hash import SHA256
 
+'''
+    Override __getitem__ from dict to delete keys that are expired
+'''
 class ExpiringDict(dict):
     def __init__(self, *args):
         dict.__init__(self, args)
@@ -22,6 +25,7 @@ class ExpiringDict(dict):
 
 class CryptoPuzzle:
 
+    # Saves puzzles sent to clients
     sent_puzzles = ExpiringDict()
 
     def create_puzzle(self, public_key):
