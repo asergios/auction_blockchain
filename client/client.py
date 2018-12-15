@@ -39,8 +39,8 @@ cc = CartaoDeCidadao()
 def toBase64(content):
 	return base64.urlsafe_b64encode(content).decode()
 
-def fromBase64(base64):
-	return base64.urlsafe_b64decode(base64.encode())
+def fromBase64(base64string):
+	return base64.urlsafe_b64decode(base64string.encode())
 
 def clean(clean = False, lines = 2):
 	'''
