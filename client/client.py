@@ -7,6 +7,8 @@ import platform
 import subprocess
 from .cartaodecidadao import CartaoDeCidadao
 from ..common.certmanager import CertManager
+from ..common.cryptopuzzle import CryptoPuzzle
+from ..common.cryptmanager import *
 from ..common.logger import initialize_logger
 import logging
 
@@ -33,6 +35,12 @@ sock_repository = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_repository.connect((UDP_IP, UDP_PORT_REPOSITORY))
 
 cc = CartaoDeCidadao()
+
+def toBase64(content):
+	return base64.urlsafe_b64encode(content).decode()
+
+def fromBase64(base64):
+	return base64.urlsafe_b64decode(base64.encode())
 
 def clean(clean = False, lines = 2):
 	'''
@@ -86,6 +94,7 @@ def create_new_auction(*arg):
 			"ACTION" : "CREATE",		# Action we intend auction manager to do, just for easier reading on server-side
 			"MESSAGE" : {},				# JSON with all the action description (described bellow)
 			"SIGNATURE" : "____",		# Message Signed with CC card
+			"CERTIFICATE" : "____"		# CC certificate
 		}
 
 		MESSAGE:
@@ -110,8 +119,8 @@ def create_new_auction(*arg):
 
 	# Sending challenge to the server
 	challenge = os.urandom(64)
-	connection = {"ACTION": "CHALLENGE", "CHALLENGE": base64.urlsafe_b64encode( challenge ).decode() ,\
-	 			  "CERTIFICATE": base64.urlsafe_b64encode( cc.get_certificate_raw() ).decode() }
+	connection = {"ACTION": "CHALLENGE", "CHALLENGE": toBase64( challenge ) ,\
+	 			  "CERTIFICATE": toBase64( cc.get_certificate_raw() ) }
 	sock_manager.send( json.dumps(connection).encode("UTF-8") )
 	logging.info("Sent Challenge To Server: " + json.dumps(connection))
 
@@ -120,8 +129,8 @@ def create_new_auction(*arg):
 	logging.info("Received Challenge Response: " + json.dumps(server_answer))
 
 	# Verify server certificate, verify signature of challenge and decode NONCE
-	certificate = base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() )
-	challenge_response = base64.urlsafe_b64decode(server_answer['CHALLENGE_RESPONSE'].encode() )
+	certificate = fromBase64( server_answer['CERTIFICATE'] )
+	challenge_response = fromBase64( server_answer['CHALLENGE_RESPONSE'] )
 	logging.info("Verifying certificate and server signature of challenge")
 
 	if not verify_server( certificate, challenge, challenge_response ):
@@ -221,8 +230,9 @@ def create_new_auction(*arg):
 	# Signing and creating outter layer of JSON message
 	logging.info("Singning Message To Send Server")
 	signed_message = cc.sign( new_auction.encode('UTF-8') )
-	outter_message = {"SIGNATURE": base64.urlsafe_b64encode( signed_message ).decode(),
+	outter_message = {"SIGNATURE": toBase64( signed_message ),
 				      "MESSAGE" : new_auction,
+					  "CERTIFICATE" : toBase64( cc.get_certificate_raw() ),
 					  "ACTION" : "CREATE" }
 
 	# Sending New Auction Request For Auction Manager
@@ -286,14 +296,120 @@ def list_auction(auction_type, auction_id = None):
 	'''
 
 	# Verify server certificate and verify signature of auction list
-	certificate = base64.urlsafe_b64decode( server_answer['CERTIFICATE'].encode() )
-	signature = base64.urlsafe_b64decode(server_answer['SIGNED_LIST'].encode() )
-	plain = base64.urlsafe_b64decode(server_answer['LIST'].encode() )
+	certificate = fromBase64( server_answer['CERTIFICATE'] )
+	signature = fromBase64(server_answer['SIGNED_LIST'] )
+	plain = fromBase64(server_answer['LIST'] )
 	if not verify_server( certificate, plain, signature ):
 		print( colorize('Server Validation Failed!', 'red') )
 		quit()
 
 	# TODO: rest of this
+	pass
+
+def make_bid(auction_id, hidden_identity = False, hidden_value = False):
+	# Scanning user CartaoDeCidadao
+	logging.info("Reading User's Cartao De Cidadao")
+	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
+	cc.scan()
+	clean(lines = 1)
+
+	# Init values
+	value = 0
+	identity = cc.get_certificate_raw()
+
+	# Ask for value to offer
+	# TODO: go back/confirm value to offer
+	while True:
+		try:
+			value = int(input("Value to offer (EUR) : "))
+		except ValueError:
+			print( colorize('Limit must be a number!', 'red') )
+			clean()
+			continue
+		else:
+			if value >= 0:
+				clean(True)
+				break
+			else:
+				print( colorize('Please pick a positive number.', 'red') )
+				clean()
+
+	if (hidden_identity or hidden_value):
+		logging.info("Auction Requires to Encrypt Values, Encrypting...")
+		# TODO:
+		# We still need to decide how to get the key from the manager, using static one for now
+		# To think: should manager give IV too? And is it a good idea to store IV on the beggining of cipher text
+		# This has a good thing, in order to decipher something, you need the key on manager and IV on repository
+		cipher_key = b'1234567890123456'
+		if( hidden_identity ): identity = encrypt(cipher_key, str(identity))
+		if( hidden_value ): value = encrypt(cipher_key, str(value))
+
+	# Ask for CryptoPuzzle
+	crypto_puzzle_request = {
+								"ACTION" : "CRYPTOPUZZLE",
+								"CERTIFICATE" : toBase64( identity )
+							}
+
+	# Send CryptoPuzzle Request
+	logging.info("Sending CryptoPuzzle request to Repository")
+	sock_repository.send( json.dumps(crypto_puzzle_request).encode("UTF-8") )
+	# Waiting for server response
+	server_answer = json.loads( wait_for_answer(sock_repository) )
+	logging.info("Received CryptoPuzzle: " + json.dumps(server_answer))
+
+	'''
+		EXPECTED ANSWER:
+			{
+				"MESSAGE" : {
+								"PUZZLE" : ____,
+								"STARTS_WITH" : ____,
+								"ENDS_WITH" : ____
+							}
+				"SIGNATURE" :  _____  (OF MESSAGE),
+				"CERTIFICATE" : _____
+			}
+	'''
+
+	# Verify server certificate, verify signature message
+	certificate = fromBase64( server_answer['CERTIFICATE'] )
+	message = fromBase64(server_answer['MESSAGE'] )
+	signature = fromBase64(server_answer['SIGNATURE'] )
+	logging.info("Verifying certificate and server signature of message")
+
+	if not verify_server( certificate, message, signature ):
+		logging.warning("Server Verification Failed")
+		print( colorize('Server Validation Failed!', 'red') )
+		input("Press any key to continue...")
+		return
+
+	logging.info("Solving CryptoPuzzle...")
+	solution = CryptoPuzzle.solve_puzzle(message["PUZZLE"], identity, \
+				message["STARTS_WITH"] , message["ENDS_WITH"])
+
+	bid = 	{
+				"AUCTION" 		: auction_id,
+				"VALUE"			: toBase64(value),
+				"CERTIFICATE"	: toBase64(identity),
+				"SOLUTION"		: toBase64(solution),
+			}
+
+	logging.info("Signing Bid...")
+	signed_bid = cc.sign( bid.encode('UTF-8') )
+	message = 	{
+					"ACTION" : "OFFER",
+					"MESSAGE" : bid,
+					"SIGNATURE" : toBase64(signed_bid)
+				}
+
+	# Send Offer
+	logging.info("Sending Bid To Repository")
+	sock_repository.send( json.dumps(message).encode("UTF-8") )
+	# Waiting for server response
+	server_answer = json.loads( wait_for_answer(sock_repository) )
+	logging.info("Received Answer From Server: " + json.dumps(server_answer))
+
+	# TODO: what will receive? receipt etc...
+
 	pass
 
 
@@ -308,7 +424,7 @@ menu = [
 def main():
 	while True:
 		os.system('clear')													# Clear the terminal
-		ascii = open('security2018-p1g1/common/ascii', 'r')								# Reading the sick ascii art
+		ascii = open('security2018-p1g1/common/ascii', 'r')					# Reading the sick ascii art
 		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 		ascii.close()
 		print('\n')
@@ -323,6 +439,7 @@ def main():
 			list(menu[int(choice) - 1].values())[0][0](list(menu[int(choice) - 1].values())[0][1])
 		except (ValueError, IndexError):
 			pass
+
 
 if __name__ == "__main__":
     main()
