@@ -5,7 +5,7 @@ def initialize_logger(output_dir='.'):
     logger = logging.getLogger()
     logger.setLevel(logging.DEBUG)
 
-    handler = logging.FileHandler(os.path.join(output_dir, "log"),"a")
+    handler = logging.FileHandler(os.path.join(output_dir, "log"),"w")
     handler.setLevel(logging.INFO)
     formatter = logging.Formatter("%(asctime)-15s - %(levelname)s - %(message)s")
     handler.setFormatter(formatter)

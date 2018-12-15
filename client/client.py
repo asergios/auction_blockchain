@@ -40,7 +40,7 @@ def toBase64(content):
 	return base64.urlsafe_b64encode(content).decode()
 
 def fromBase64(base64string):
-	return base64.urlsafe_b64decode(base64string.encode())
+	return base64.urlsafe_b64decode(base64string.encode("UTF-8"))
 
 def clean(clean = False, lines = 2):
 	'''
@@ -119,8 +119,8 @@ def create_new_auction(*arg):
 
 	# Sending challenge to the server
 	challenge = os.urandom(64)
-	connection = {"ACTION": "CHALLENGE", "CHALLENGE": toBase64( challenge ) ,\
-	 			  "CERTIFICATE": toBase64( cc.get_certificate_raw() ) }
+	connection = {"ACTION": "CHALLENGE", "CHALLENGE":  toBase64(challenge)  ,\
+	 			  "CERTIFICATE": toBase64(cc.get_certificate_raw()) }
 	sock_manager.send( json.dumps(connection).encode("UTF-8") )
 	logging.info("Sent Challenge To Server: " + json.dumps(connection))
 
