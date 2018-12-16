@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 
+VENV=${1:-venv}
+
 cd "$(dirname "$0")"
-echo -e "Activate virtual environment"
-cd ..
-source venv/bin/activate
+cd ../src
+echo -e "Activate virtual environment: $VENV"
+source $VENV/bin/activate
 echo -e "Execute client"
 cd ..
-python3 -m security2018-p1g1.client.client security2018-p1g1/client/config.ini
+python3 -m src.client.client

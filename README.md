@@ -3,19 +3,30 @@
 ## Sumário
 Nesta pasta encontra-se o código do projeto segurança.
 
+## Estrutura
+Root
+|
++--bin
+|
++--src
+|
++--README.md
+
 ## Pré-requesitos
+Os pré-requisitos podem ser instalados manualmente:
+
 ```
 $ python3 -m venv venv
 $ source venv/bin/activate
 $ pip install -r requirements.txt
 ```
+Ou através de um script que prepara e executa o projecto:
+
+```
+$ ./bin/build_run.sh
+```
 
 ## Executar
-
-### Configuração
-#### Client
-Para este processo ser executado corretamente é necessário indicar o caminho para a biblioteca **libpteidpkcs11.so**.
-O caminho para esta biblioteca deve ser indicado no ficheiro ./client/config.ini
 
 ### Manualmente
 Abrir 3 terminais e em cada terminal correr apenas uma vez:
@@ -27,23 +38,25 @@ Execute as aplicações pela seguinte ordem:
 
 Terminal 1:
 ```
-$ python3 -m security2018-p1g1.auction_repository.auction_repository
+$ python3 -m src.auction_repository.auction_repository
 ```
 
 Terminal 2:
 ```
-$ python3 -m security2018-p1g1.auction_manager.auction_manager
+$ python3 -m src.auction_manager.auction_manager
 ```
 
 Terminal 3:
 ```
-$ python3 -m security2018-p1g1.client.client
+$ python3 -m src.client.client
 ```
 ### Automaticamente
-Foram criados tres scripts em bash para facilitar a execução dos processos.
+Foram criados 3 scripts em bash para facilitar a execução dos 3 processos.
 Os scripts encontram-se na pasta bin e cada um deles ativa o virtual environment e executa o respetivo processo.
 Basta executa-los pela seguinte ordem (em terminais diferentes):
-1. ./auction_repository.sh
-2. ./auction_manager.sh
-3. ./client.sh
+1. ./bin/auction_repository.sh
+2. ./bin/auction_manager.sh
+3. ./bin/client.sh
+
+Em alternativa basta executar apenas o script ./bin/build_run.sh
 

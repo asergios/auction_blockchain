@@ -3,11 +3,6 @@ import socket
 import json
 import logging
 import base64
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-from OpenSSL import crypto
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.PublicKey import RSA
 from ..common.certmanager import CertManager
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -34,10 +29,10 @@ class OpenConnections:
 
 
 def main():
-    backend = default_backend() # VER
-    pk = loadPrivateKey("security2018-p1g1/auction_manager/keys/private_key.pem")
-    cert = loadCertificateRaw("security2018-p1g1/auction_manager/keys/manager.crt")
+    pk = loadPrivateKey("src/auction_manager/keys/private_key.pem")
+    cert = loadCertificateRaw("src/auction_manager/keys/manager.crt")
     oc = OpenConnections()
+    
     #switch case para tratar de mensagens
     mActions = {"CREATE":validateAuction,
                 "CHALLENGE": challengeResponse}
@@ -46,24 +41,15 @@ def main():
     logger.info("Auction Manager running...")
     while True:
         data, addr = sock.recvfrom(4096)
-        #logger.debug("DATA = %s", data)
-        ## FIX ME
         j = json.loads(data)
         logger.debug("JSON = %s", j)
         logger.debug("ACTION = %s", j['ACTION'])
         mActions[j["ACTION"]](j, sock, addr, oc, pk, cert)
 
 def loadPrivateKey(path):
-    #ftype = crypto.FILETYPE_PEM
     with open(path, 'rb') as f:
         k = f.read()
-    #k = crypto.load_privatekey(ftype, k)
     return k
-
-def loadCertificate(path, backend):
-    with open(path, 'rb') as f: crt_data = f.read()
-    cert = x509.load_pem_x509_certificate(crt_data, backend)
-    return cert
 
 def loadCertificateRaw(path):
     with open(path, 'rb') as f: crt_data = f.read()
@@ -71,19 +57,14 @@ def loadCertificateRaw(path):
 
 #responde ao challenge do cliente; retorna um nonce
 def challengeResponse(j, sock, addr, oc, pk, cert):
-    logger.info("CHALLENGE")
     challenge = base64.urlsafe_b64decode(j["CHALLENGE"])
     certificate = base64.urlsafe_b64decode(j["CERTIFICATE"])
 
     # Assinar Challenge
+    # Ver este ponto da comunicação...
     cm = CertManager( priv_key = pk )
     cr = cm.sign(challenge)
-
-    # cifrar o challenge com a chave privada
-    # CIFRAR NAO E ASSINAR
-    #encryptor = PKCS1_OAEP.new(pk)
-    #cr = encryptor.encrypt(challenge)
-
+    
     nonce = oc.add(certificate)
 
     reply = { "ACTION": "CHALLENGE_REPLY","CHALLENGE_RESPONSE": base64.urlsafe_b64encode(cr).decode(),
@@ -96,46 +77,69 @@ def challengeResponse(j, sock, addr, oc, pk, cert):
 
 #auction --> client request
 def validateAuction(j, sock, addr, oc, pk, cert):
-    logger.info("CREATE")
     reply = {"ACTION":"CREATE_REPLY"}
 
-    # Falta-te validar assinatura e certificado
-    j = json.loads(j["MESSAGE"])
+    # Validar assinatura e certificado
+    c = base64.urlsafe_b64decode(j['CERTIFICATE'])
+    s = base64.urlsafe_b64decode(j['SIGNATURE'])
+    message = json.loads(j["MESSAGE"])
+    nonce = base64.urlsafe_b64decode(message['NONCE'])
 
-    if "TITLE" not in j:
+    cm = CertManager( cert = c, priv_key = pk )
+    if not cm.verify_certificate():
         reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "MISSING TITLE"
+        reply["ERROR"] = "INVALID CERTIFICATE"
+        logger.error("REPLY = %s", reply)
+        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+        return
+    
+    if not cm.verify_signature(s, j["MESSAGE"].encode("UTF-8")):
+        reply["STATE"] = "NOT OK"
+        reply["ERROR"] = "INVALID SIGNATURE"
+        logger.error("REPLY = %s", reply)
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
 
-    if "DESCRIPTION" not in j:
+    if "TITLE" not in message:
+        reply["STATE"] = "NOT OK"
+        reply["ERROR"] = "MISSING TITLE"
+        logger.error("REPLY = %s", reply)
+        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+        return
+
+    if "DESCRIPTION" not in message:
         reply["STATE"] = "NOT OK"
         reply["ERROR"] = "MISSING DESCRIPTION"
+        logger.error("REPLY = %s", reply)
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
 
     #ver tipos de leiloes
-    if "TYPE" not in j:
+    if "TYPE" not in message:
         reply["STATE"] = "NOT OK"
         reply["ERROR"] = "MISSING TYPE"
+        logger.error("REPLY = %s", reply)
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
 
-    if "BID_LIMIT" not in j:
+    if "BID_LIMIT" not in message:
         reply["STATE"] = "NOT OK"
         reply["ERROR"] = "MISSING BID_LIMIT"
+        logger.error("REPLY = %s", reply)
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
 
     #usar o 0 para bid infinita --> não numero limite de bids
-    bid_limit = j["BID_LIMIT"]
+    bid_limit = message["BID_LIMIT"]
     if bid_limit < 0:
         reply["STATE"] = "NOT OK"
         reply["ERROR"] = "BID_LIMIT LESS THAN ZERO"
+        logger.error("REPLY = %s", reply)
         sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
         return
 
     reply["STATE"] = "OK"
+    logger.error("REPLY = %s", reply)
     sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
 
 if __name__ == "__main__":

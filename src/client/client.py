@@ -13,7 +13,7 @@ from ..common.logger import initialize_logger
 import logging
 
 
-initialize_logger("security2018-p1g1/client")
+initialize_logger("src/client")
 
 colors = {
 		'blue': '\033[94m',
@@ -204,11 +204,11 @@ def create_new_auction(*arg):
 		plat = platform.system()
 		try:
 			# linux platform
-			if(plat == "Linux"): subprocess.call(['xdg-open', 'security2018-p1g1/client/code.txt'])
+			if(plat == "Linux"): subprocess.call(['xdg-open', 'src/client/code.txt'])
 			# mac platform
-			elif(plat == "Darwin"): subprocess.call(['open', 'security2018-p1g1/client/code.txt'])
+			elif(plat == "Darwin"): subprocess.call(['open', 'src/client/code.txt'])
 			# windows platform
-			elif(plat == "Windows"): os.startfile('security2018-p1g1/client/code.txt')
+			elif(plat == "Windows"): os.startfile('src/client/code.txt')
 			else:
 				print("Please Edit Code To Upload on code.txt file.")
 		except:
@@ -216,7 +216,7 @@ def create_new_auction(*arg):
 			quit()
 
 		input("Press any key when code is ready to upload...")
-		with open('security2018-p1g1/client/code.txt', 'r') as f:
+		with open('src/client/code.txt', 'r') as f:
 		    new_auction["CODE"] = [line.rstrip('\n') for line in f]
 
 	elif(choice.startswith("M")):
@@ -424,7 +424,7 @@ menu = [
 def main():
 	while True:
 		os.system('clear')													# Clear the terminal
-		ascii = open('security2018-p1g1/common/ascii', 'r')					# Reading the sick ascii art
+		ascii = open('src/common/ascii', 'r')					# Reading the sick ascii art
 		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 		ascii.close()
 		print('\n')

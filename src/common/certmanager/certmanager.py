@@ -1,9 +1,13 @@
-
 import os
+import logging
 from OpenSSL import crypto
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256, SHA
 from Crypto.Signature import PKCS1_v1_5
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('CM')
+logger.setLevel(logging.DEBUG)
 
 '''
 NOT FULLY TESTED, BE CAREFUL
@@ -36,7 +40,7 @@ class CertManager:
         private_key = priv_key
         if not priv_key:
             if not self.priv_key:
-                print("ERROR: no private key given")
+                logger.error("No private key given")
                 return
             private_key = self.priv_key
 
@@ -51,7 +55,7 @@ class CertManager:
         public_key = pub_key
         if not pub_key:
             if not self.pub_key:
-                print("ERROR: no public key given")
+                logger.error("No public key given")
                 return False
             public_key = self.pub_key
 
@@ -68,14 +72,14 @@ class CertManager:
         certificate = cert
         if not cert:
             if not self.cert:
-                print("ERROR: no certificate given")
+                logger.error("No certificate given")
                 return False
             certificate = self.cert
 
         store = crypto.X509Store()
 
-        for filename in os.listdir('security2018-p1g1/common/certmanager/certs'):
-            f = open('security2018-p1g1/common/certmanager/certs/' + filename, 'rb')
+        for filename in os.listdir('src/common/certmanager/certs'):
+            f = open('src/common/certmanager/certs/' + filename, 'rb')
             cert_text = f.read()
             try:
                 # PEM FORMAT
@@ -87,7 +91,7 @@ class CertManager:
 
                 store.add_cert(cert)
             except Exception as e:
-                print("Error reading certificate: ", filename)
+                logger.error("Unable to read certificate: %s", filename)
                 continue
 
         store_ctx = crypto.X509StoreContext(store, certificate)
