@@ -35,9 +35,15 @@ sock_repository.connect((UDP_IP, UDP_PORT_REPOSITORY))
 cc = CartaoDeCidadao()
 
 def toBase64(content):
+	'''
+		Converts content to base64 in order to send to server
+	'''
 	return base64.urlsafe_b64encode(content).decode()
 
 def fromBase64(base64string):
+	'''
+		Decodes base64 content received from server
+	'''
 	return base64.urlsafe_b64decode(base64string.encode("UTF-8"))
 
 def clean(clean = False, lines = 2):
@@ -260,7 +266,7 @@ def create_new_auction(*arg):
 		input("Press any key to continue...")
 
 
-def list_auction(auction_type, auction_id = None):
+def list_auction(arg):
 	'''
 		Requests english auctions to auction repository
 
@@ -271,6 +277,9 @@ def list_auction(auction_type, auction_id = None):
 			(Optional) "AUCTION_ID" : XX
 		}
 	'''
+
+	auction_type = arg[0]
+	auction_id = arg[1] if 1 < len(arg) else None
 
 	request = {"ACTION" : auction_type}
 
@@ -302,6 +311,17 @@ def list_auction(auction_type, auction_id = None):
 		quit()
 
 	# TODO: rest of this
+
+	# Sample for testing
+	auctions = [
+	    { "Ovos a Acabar o Prazo": (list_auction, (auction_type, 12) ) },
+	    { "Carro": (list_auction, (auction_type, 13) ) },
+	    { "Rare Pepe": (list_auction, (auction_type, 14) ) },
+		{ "Exit" : (print_menu, menu) }
+	]
+
+	print_menu(auctions)
+
 	pass
 
 def make_bid(auction_id, hidden_identity = False, hidden_value = False):
@@ -411,32 +431,39 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	pass
 
 
-# Menu to be printed to the user
+def print_menu(menu):
+	'''
+		Print menu to the user
+	'''
+
+	#os.system('clear')													# Clear the terminal
+	ascii = open('src/common/ascii', 'r')								# Reading the sick ascii art
+	print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
+	ascii.close()
+	print('\n')
+	for item in menu:													# Printing the menu together with the index
+		print( str(menu.index(item) + 1) + " - " + list(item.keys())[0] )
+
+	choice = input(">> ")
+
+	try:																# Reading the choice
+		if int(choice) <= 0 : raise ValueError
+		if list(menu[int(choice) - 1].values())[0] == None: quit()
+		list(menu[int(choice) - 1].values())[0][0](list(menu[int(choice) - 1].values())[0][1])
+	except (ValueError, IndexError):
+		pass
+
+# Default Menu to be printed to the user
 menu = [
     { "Create new auction": (create_new_auction, None) },
-    { "List open auctions [English Auction]": (list_auction, "ENGLISH") },
-    { "List open auctions [Blind Auction]": (list_auction, "BLIND") },
+    { "List open auctions [English Auction]": (list_auction, ("ENGLISH", ) ) },
+    { "List open auctions [Blind Auction]": (list_auction, ("BLIND", ) ) },
 	{ "Exit" : None }
 ]
 
 def main():
 	while True:
-		os.system('clear')													# Clear the terminal
-		ascii = open('src/common/ascii', 'r')					# Reading the sick ascii art
-		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
-		ascii.close()
-		print('\n')
-		for item in menu:													# Printing the menu together with the index
-			print( str(menu.index(item) + 1) + " - " + list(item.keys())[0] )
-
-		choice = input(">> ")
-
-		try:																# Reading the choice
-			if int(choice) <= 0 : raise ValueError
-			if int(choice) == 4 : quit()
-			list(menu[int(choice) - 1].values())[0][0](list(menu[int(choice) - 1].values())[0][1])
-		except (ValueError, IndexError):
-			pass
+		print_menu(menu)
 
 
 if __name__ == "__main__":
