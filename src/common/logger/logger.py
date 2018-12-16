@@ -1,7 +1,7 @@
 import logging
 import os.path
 
-def initialize_logger(output_dir='.', name):
+def initialize_logger(name, output_dir='.'):
     logger = logging.getLogger(name)
     logger.setLevel(logging.DEBUG)
     logger.propagate = False

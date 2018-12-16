@@ -11,7 +11,7 @@ from ..common.cryptopuzzle import CryptoPuzzle
 from ..common.cryptmanager import *
 from ..common.logger import initialize_logger
 
-logging = initialize_logger("src/client", 'AC')
+logging = initialize_logger('AC', "src/client")
 
 colors = {
 		'blue': '\033[94m',
