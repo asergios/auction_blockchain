@@ -11,7 +11,7 @@
 #   3 - The validation of the bid depends on the return, you may only return True or False
 #
 # ARGUMENTS THAT WILL BE GIVEN TO YOU:
-#   "identity"   : Certificate from the client that made the bid.
+#   "identity"   : CC card number of the client that made the bid.
 #   "value"      : Value given by the client.
 #   "times"      : Times that this client participated in this auction.
 #   "prev_value" : Higher offer given for this auction, this value is None if it is a Blind Auction.
@@ -19,6 +19,7 @@
 # def validate_auction (identity, value, times, prev_value):
 # WRITE YOUR CODE HERE:
 
-
+if identity == "1234567":
+  return False
 
 # return True

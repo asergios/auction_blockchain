@@ -219,9 +219,10 @@ def create_new_auction(*arg):
 			print( colorize("ERROR: Unable to open code upload file.", 'red') )
 			quit()
 
+		print("File for dynamic code will open sortly... please wait.")
 		input("Press any key when code is ready to upload...")
 		with open('src/client/code.txt', 'r') as f:
-		    new_auction["CODE"] = [line.rstrip('\n') for line in f]
+		    new_auction["CODE"] = [line.rstrip('\n') for line in f if not line.startswith("#")]
 
 	elif(choice.startswith("M")):
 		# TODO: print guide
@@ -232,7 +233,7 @@ def create_new_auction(*arg):
 	new_auction = json.dumps(new_auction)
 
 	# Signing and creating outter layer of JSON message
-	logging.info("Singning Message To Send Server")
+	logging.info("Signing Message To Send Server")
 	signed_message = cc.sign( new_auction.encode('UTF-8') )
 	outter_message = {"SIGNATURE": toBase64( signed_message ),
 				      "MESSAGE" : new_auction,
@@ -251,8 +252,8 @@ def create_new_auction(*arg):
 
 	if (server_answer["STATE"] == "OK"):
 		clean(lines=1)
-		logging.info("Auction Creating Was Succesful")
-		print( colorize("Auction succesfully created!", 'pink') )
+		logging.info("Auction Creating Was Successful")
+		print( colorize("Auction successfully created!", 'pink') )
 		input("Press any key to continue...")
 	elif (server_answer["STATE"] == "NOT OK"):
 		clean(lines=1)
