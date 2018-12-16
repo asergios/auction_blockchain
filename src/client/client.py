@@ -10,10 +10,8 @@ from ..common.certmanager import CertManager
 from ..common.cryptopuzzle import CryptoPuzzle
 from ..common.cryptmanager import *
 from ..common.logger import initialize_logger
-import logging
 
-
-initialize_logger("src/client")
+logging = initialize_logger("src/client", 'AC')
 
 colors = {
 		'blue': '\033[94m',
