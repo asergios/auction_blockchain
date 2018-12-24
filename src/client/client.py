@@ -71,7 +71,7 @@ def verify_server(certificate, message, signature):
 	cm = CertManager(cert = certificate)
 	return  cm.verify_certificate() and cm.verify_signature( signature , message )
 
-def wait_for_answer(sock):
+def wait_for_answer(sock, action):
 	'''
 		Waits for a response from server
 	'''
@@ -79,12 +79,17 @@ def wait_for_answer(sock):
 		try:
 			data, addr = sock.recvfrom(4096)
 			if data:
-				return data
+				answer = json.loads(data)
+				if(answer["ACTION"] == action):
+					return answer
+				else:
+					logging.error("Server sent an Invalid JSON!: " + data)
 		except:
-			logging.error("Failed to connect to server!")
-			print( colorize("Unable to connect with server, please try again later.", 'red') )
-			input("Press any key to continue...")
-			quit()
+			logging.error("Failed to connect to server or server sent an invalid JSON!")
+
+	print( colorize("Unable to connect with server, please try again later.", 'red') )
+	input("Press any key to continue...")
+	return False
 
 def create_new_auction(*arg):
 	'''
@@ -98,7 +103,6 @@ def create_new_auction(*arg):
 			"ACTION" : "CREATE",		# Action we intend auction manager to do, just for easier reading on server-side
 			"MESSAGE" : {},				# JSON with all the action description (described bellow)
 			"SIGNATURE" : "____",		# Message Signed with CC card
-			"CERTIFICATE" : "____"		# CC certificate
 		}
 
 		MESSAGE:
@@ -108,7 +112,11 @@ def create_new_auction(*arg):
 			"TITLE": "_____",			# Title of the auction
 			"DESCRIPTION": "_____",		# Description of the auction
 			"TYPE": ___,				# Type of the auction 1 being english auction and 2 being blind auction
+			"SUBTYPE": ___,				# SubType of the auction, as if it hides the identity or not
+			"AUCTION_EXPIRES": ___,		# Expiration of Auction is hours
 			"BID_LIMIT": ___,			# Time limit for new bids
+			"CODE": ___,				# Dynamic code that user wrote
+			"NONCE": ___,				# NONCE given by the server
 		}
 	'''
 	# Scanning user CartaoDeCidadao
@@ -129,7 +137,8 @@ def create_new_auction(*arg):
 	logging.info("Sent Challenge To Server: " + json.dumps(connection))
 
 	# Wait for Challenge Response
-	server_answer = json.loads( wait_for_answer(sock_manager) )
+	server_answer = wait_for_answer(sock_manager , "CHALLENGE_REPLY")
+	if not server_answer: return
 	logging.info("Received Challenge Response: " + json.dumps(server_answer))
 
 	# Verify server certificate, verify signature of challenge and decode NONCE
@@ -183,10 +192,43 @@ def create_new_auction(*arg):
 				print( colorize('Please pick one of the available types.', 'red') )
 				clean(lines=5)
 
-	# Maxium time for new bids
+	# Auction SubType
+	while True:
+		print(colorize('SubTypes available: \n 	1 - Public Identity\n 	2 - Hidden identity [until end of auction]', 'green'))
+		try:
+			new_auction['SUBTYPE'] = int(input("SubType: "))
+		except ValueError:
+			print( colorize('SubType must be a number!', 'red') )
+			clean(lines=5)
+			continue
+		else:
+			if new_auction['SUBTYPE'] == 1 or new_auction['SUBTYPE'] == 2:
+				clean(True)
+				break
+			else:
+				print( colorize('Please pick one of the available subtypes.', 'red') )
+				clean(lines=5)
+
+	# Time for Auction expiration (hours)
 	while True:
 		try:
-			new_auction['BID_LIMIT'] = int(input("Limit time for new bids (minutes): "))
+			new_auction['AUCTION_EXPIRES'] = int(input("Expiration time for Auction (hours): "))
+		except ValueError:
+			print( colorize('Expiration must be a number!', 'red') )
+			clean()
+			continue
+		else:
+			if new_auction['AUCTION_EXPIRES'] >= 0:
+				clean(True)
+				break
+			else:
+				print( colorize('Please pick a positive number.', 'red') )
+				clean()
+
+	# Times That Auction Is Extended in case of new bids
+	while True:
+		try:
+			new_auction['BID_LIMIT'] = int(input("Time extended for new bids (minutes): "))
 		except ValueError:
 			print( colorize('Limit must be a number!', 'red') )
 			clean()
@@ -200,6 +242,7 @@ def create_new_auction(*arg):
 				clean()
 
 
+	# Dynamic Code For Bid Validation
 	print("Do you wish to upload code for bid validation?")
 	choice = input("[y/N/manual] => ")
 	choice = choice.upper()
@@ -228,16 +271,16 @@ def create_new_auction(*arg):
 		# TODO: print guide
 		pass
 
+	# Building INNER JSON
 	new_auction["ACTION"] = "CREATE"
 	new_auction["NONCE"] = server_answer["NONCE"]
 	new_auction = json.dumps(new_auction)
 
-	# Signing and creating outter layer of JSON message
+	# Signing and creating OUTTER layer of JSON message
 	logging.info("Signing Message To Send Server")
 	signed_message = cc.sign( new_auction.encode('UTF-8') )
 	outter_message = {"SIGNATURE": toBase64( signed_message ),
 				      "MESSAGE" : new_auction,
-					  "CERTIFICATE" : toBase64( cc.get_certificate_raw() ),
 					  "ACTION" : "CREATE" }
 
 	# Sending New Auction Request For Auction Manager
@@ -247,7 +290,8 @@ def create_new_auction(*arg):
 	# Wait for Server Response
 	logging.info("Waiting for server response")
 	print( colorize( "Creating Auction, please wait...", 'pink' ) )
-	server_answer = json.loads( wait_for_answer(sock_manager) )
+	server_answer = wait_for_answer(sock_manager, "CREATE_REPLY")
+	if not server_answer: return
 	logging.info("Received Server Response: " + json.dumps(server_answer))
 
 	if (server_answer["STATE"] == "OK"):
@@ -292,7 +336,8 @@ def list_auction(arg):
 	# Send request to repository
 	sock_repository.send(request.encode("UTF-8"))
 	# Waiting for server response
-	server_answer = json.loads( wait_for_answer(sock_repository) )
+	server_answer = wait_for_answer(sock_repository, "TODO")
+	if not server_answer: return
 
 	'''
 		I will be expecting an answer in this format:
@@ -373,7 +418,8 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	logging.info("Sending CryptoPuzzle request to Repository")
 	sock_repository.send( json.dumps(crypto_puzzle_request).encode("UTF-8") )
 	# Waiting for server response
-	server_answer = json.loads( wait_for_answer(sock_repository) )
+	server_answer = wait_for_answer(sock_repository, "CRYPTOPUZZLE_REPLY")
+	if not server_answer: return
 	logging.info("Received CryptoPuzzle: " + json.dumps(server_answer))
 
 	'''
@@ -424,7 +470,8 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	logging.info("Sending Bid To Repository")
 	sock_repository.send( json.dumps(message).encode("UTF-8") )
 	# Waiting for server response
-	server_answer = json.loads( wait_for_answer(sock_repository) )
+	server_answer = wait_for_answer(sock_repository, "")
+	if not server_answer: return
 	logging.info("Received Answer From Server: " + json.dumps(server_answer))
 
 	# TODO: what will receive? receipt etc...
