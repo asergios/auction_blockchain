@@ -16,8 +16,8 @@ logger.setLevel(logging.DEBUG)
 
 def main(args):
     pk = load_file_raw('src/auction_manager/keys/private_key.pem')
-    pkr = load_file_raw('src/auction_manager/keys/public_key_repository.pem')
-    cert = load_file_raw('src/auction_manager/keys/manager.crt')
+    pukr = load_file_raw('src/auction_manager/keys/public_key_repository.pem')
+    cert = load_file_raw("src/common/certmanager/certs/manager.crt")
     oc = OpenConnections()
     
     #switch case para tratar de mensagens
@@ -32,10 +32,11 @@ def main(args):
         j = json.loads(data)
         logger.debug('JSON = %s', j)
         logger.debug('ACTION = %s', j['ACTION'])
-        mActions[j['ACTION']](j, sock, addr, oc, pk, pkr, cert)
+        mActions[j['ACTION']](j, sock, addr, oc, pk, pukr, cert, (str(args.ip_ar), args.port_ar))
+
 
 #responde ao challenge do cliente; retorna um nonce
-def challengeResponse(j, sock, addr, oc, pk, pkr, cert):
+def challengeResponse(j, sock, addr, oc, pk, pukr, cert, addr_rep):
     challenge = base64.urlsafe_b64decode(j['CHALLENGE'])
     certificate = base64.urlsafe_b64decode(j['CERTIFICATE'])
 
@@ -54,7 +55,7 @@ def challengeResponse(j, sock, addr, oc, pk, pkr, cert):
 
 
 #auction --> client request
-def validateAuction(j, sock, addr, oc, pk, pkr, cert):
+def validateAuction(j, sock, addr, oc, pk, pukr, cert, addr_rep):
     reply = {'ACTION':'CREATE_REPLY'}
 
     # Validar assinatura e certificado
@@ -101,8 +102,9 @@ def validateAuction(j, sock, addr, oc, pk, pkr, cert):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    type = message['TYPE']
-    if type != 1 or type != 2:
+    atype = message['TYPE']
+    if atype != 1 and atype != 2:
+        logger.debug("type = %d", atype)
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID TYPE'
         logger.error('REPLY = %s', reply)
@@ -117,7 +119,7 @@ def validateAuction(j, sock, addr, oc, pk, pkr, cert):
         return
 
     subtype = message['SUBTYPE']
-    if type != 1 or type != 2:
+    if subtype != 1 and subtype != 2:
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID SUBTYPE'
         logger.error('REPLY = %s', reply)
@@ -156,14 +158,23 @@ def validateAuction(j, sock, addr, oc, pk, pkr, cert):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    logger.debug(message)
-    #nonce = oc.add(addr)
-    #json = {'NONCE':nonce,}
-    #sock.sendto()
+    logger.debug("Identity = %s", cm.get_identity())
+    nonce = oc.add(addr)
+    message['ACTION'] = 'STORE'
+    message['NONCE'] = base64.urlsafe_b64encode(nonce).decode()
+
+    d = json.dumps(message).encode('UTF-8')
+    logger.debug("D = %s", d)
+    data = base64.urlsafe_b64encode(cm.encrypt(d, pukr)).decode()
+    logger.debug('DATA = %s', data)
+    request = {'ACTION':'STORE', 'DATA': data}
+    logger.debug("REPOSITORY STORE = %s", request)
+
+    sock.sendto(json.dumps(request).encode('UTF-8'), addr_rep)
     
-    reply['STATE'] = 'OK'
-    logger.error('REPLY = %s', reply)
-    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+    #reply['STATE'] = 'OK'
+    #logger.error('REPLY = %s', reply)
+    #sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Auction Manager')

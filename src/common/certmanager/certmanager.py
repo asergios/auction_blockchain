@@ -18,7 +18,7 @@ NOT FULLY TESTED, BE CAREFUL
 
 class CertManager:
 
-    def __init__(self, cert = None, priv_key = None):
+    def __init__(self, cert = None, priv_key = None, pub_key = None):
 
         if cert:
             if (cert.startswith( b'-----BEGIN CERTIFICATE-----' )):
@@ -36,6 +36,9 @@ class CertManager:
             rsakey = RSA.importKey(priv_key)
             self.priv_key = PKCS1_v1_5.new(rsakey)
             self.priv_key_enc = PKCS1_OAEP.new(rsakey, SHA256)
+
+        if pub_key:
+            self.pub_key_enc = PKCS1_OAEP.new(RSA.importKey(pub_key), SHA256)
 
     def sign(self, data, priv_key = None):
         """
@@ -74,12 +77,13 @@ class CertManager:
             Encrypt text with given or set pub_key
         """
 
-        public_key = pub_key
-        if not pub_key:
-            if not self.pub_key_enc:
-                logger.error("No public key given")
-                return False
+        if pub_key != None:
+            public_key = PKCS1_OAEP.new(RSA.importKey(pub_key), SHA256)
+        elif self.pub_key != None:
             public_key = self.pub_key_enc
+        else:
+            logger.error("No public key given")
+            return False
 
         return public_key.encrypt( plaintext )
 
@@ -88,14 +92,18 @@ class CertManager:
             Decrypt cipher_text with given or set priv_key
         """
 
-        private_key = priv_key
-        if not priv_key:
-            if not self.priv_key_enc:
-                logger.error("No private key given")
-                return
-            private_key = self.priv_key_enc
+        if priv_key != None:
+            rsakey = RSA.importKey(priv_key)
+            private_key = PKCS1_v1_5.new(rsakey)
+            private_key_enc = PKCS1_OAEP.new(rsakey, SHA256)
+        elif self.priv_key != None:
+            private_key = self.priv_key
+            private_key_enc = self.priv_key_enc
+        else:
+            logger.error("No private key given")
+            return False
 
-        return private_key.decrypt( ciphertext )
+        return private_key_enc.decrypt( ciphertext )
 
     def verify_certificate(self, cert = None):
         """
@@ -132,3 +140,14 @@ class CertManager:
         result = store_ctx.verify_certificate()
 
         return True if not result else False
+    
+    def get_identity(self, cert = None):
+        certificate = cert
+        if not cert:
+            if not self.cert:
+                logger.error("No certificate given")
+                return False
+            certificate = self.cert
+        
+        subject = certificate.get_subject()
+        return (subject.CN, subject.serialNumber[2:-1])
