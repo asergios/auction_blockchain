@@ -46,8 +46,7 @@ def fromBase64(base64string):
 	'''
 		Decodes base64 content received from server
 	'''
-	return base64.urlsafe_b64decode(base64string.encode("UTF-8"))
-	#return base64.urlsafe_b64decode(base64string)
+	return base64.urlsafe_b64decode(base64string)
 
 def clean(clean = False, lines = 2):
 	'''
@@ -84,8 +83,7 @@ def wait_for_answer(sock, action):
 		try:
 			data, addr = sock.recvfrom(4096)
 			if data:
-				answer = json.loads(data)
-				#answer = json.loads(data.decode('UTF-8'))
+				answer = json.loads(data.decode('UTF-8'))
 				if(answer["ACTION"] == action):
 					return answer
 				else:
@@ -608,8 +606,6 @@ menu = [
 ]
 
 def main():
-	save_receipt("12345", "12345", "receipt")
-	quit()
 	while True:
 		print_menu(menu)
 
