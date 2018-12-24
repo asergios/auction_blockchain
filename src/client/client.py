@@ -68,6 +68,8 @@ def verify_server(certificate, message, signature):
 	'''
 		Verify Server Certificate and Signature
 	'''
+	certificate = fromBase64(certificate)
+	signature = fromBase64(certificate)
 	cm = CertManager(cert = certificate)
 	return  cm.verify_certificate() and cm.verify_signature( signature , message )
 
@@ -142,14 +144,12 @@ def create_new_auction(*arg):
 	logging.info("Received Challenge Response: " + json.dumps(server_answer))
 
 	# Verify server certificate, verify signature of challenge and decode NONCE
-	certificate = fromBase64( server_answer['CERTIFICATE'] )
-	challenge_response = fromBase64( server_answer['CHALLENGE_RESPONSE'] )
 	logging.info("Verifying certificate and server signature of challenge")
-
-	if not verify_server( certificate, challenge, challenge_response ):
+	if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['CHALLENGE_RESPONSE'] ):
 		logging.warning("Server Verification Failed")
 		print( colorize('Server Validation Failed!', 'red') )
 		input("Press any key to continue...")
+		return
 
 	new_auction = {}
 
@@ -313,7 +313,7 @@ def create_new_auction(*arg):
 
 def list_auction(arg):
 	'''
-		Requests english auctions to auction repository
+		Requests auctions to auction repository
 
 		JSON sent to Auction Repository Description:
 
@@ -349,10 +349,8 @@ def list_auction(arg):
 	'''
 
 	# Verify server certificate and verify signature of auction list
-	certificate = fromBase64( server_answer['CERTIFICATE'] )
-	signature = fromBase64(server_answer['SIGNED_LIST'] )
 	plain = fromBase64(server_answer['LIST'] )
-	if not verify_server( certificate, plain, signature ):
+	if not verify_server( server_answer['CERTIFICATE'], plain, server_answer['SIGNED_LIST'] ):
 		print( colorize('Server Validation Failed!', 'red') )
 		quit()
 
@@ -398,13 +396,66 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 				print( colorize('Please pick a positive number.', 'red') )
 				clean()
 
+	# Establish connection with server
+	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
 	if (hidden_identity or hidden_value):
 		logging.info("Auction Requires to Encrypt Values, Encrypting...")
-		# TODO:
-		# We still need to decide how to get the key from the manager, using static one for now
-		# To think: should manager give IV too? And is it a good idea to store IV on the beggining of cipher text
-		# This has a good thing, in order to decipher something, you need the key on manager and IV on repository
-		cipher_key = b'1234567890123456'
+		# Ask for key to manager
+		challenge = os.urandom(16)
+		key_init = {
+						"ACTION" : "KEY_SET_INIT",
+						"CHALLENGE" : toBase64( challenge ),
+						"CERTIFICATE" : toBase64( cc.get_certificate_raw)
+					  }
+		# Sending Request
+		logging.info("Sending Key Init Request to Manager")
+		sock_manager.send( json.dumps(key_init).encode("UTF-8") )
+		# Waiting for server response
+		server_answer = wait_for_answer(sock_manager, "KEY_ANSWER")
+		if not server_answer: return
+		logging.info("Received Key Init Answer From Server! : " + server_answer)
+
+		# Verify server certificate, verify signature of challeng
+		logging.info("Verifying certificate and server signature of challenge")
+		if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['CHALLENGE_RESPONSE' ):
+			logging.warning("Server Verification Failed")
+			print( colorize('Server Validation Failed!', 'red') )
+			input("Press any key to continue...")
+			return
+
+		# Generate cipher_key and encrypt it with server public_key
+		cipher_key = os.urandom(16)
+		cm = CertManager(cert=fromBase64(server_answer['CERTIFICATE']))
+		cipher_key_enc = cm.encrypt(cipher_key)
+
+		# Building inner and outter json
+		to_sign = {
+					 "NONCE" : server_answer['NONCE'],
+					 "KEY" : toBase64(cipher_key_enc)
+				  }
+		signature = cc.sign(to_sign.encode('UTF-8'))
+		key_set = {
+						"ACTION" : "KEY_SET",
+						"NONCE" : server_answer['NONCE'],
+   					 	"KEY" : toBase64(cipher_key_enc),
+						"SIGNATURE" : toBase64(signature)
+					}
+
+		# Sending Request
+		logging.info("Sending Key Set Request to Manager")
+		sock_manager.send( json.dumps(key_set).encode("UTF-8") )
+		# Waiting for server response
+		server_answer = wait_for_answer(sock_manager, "KEY_ACK")
+		if not server_answer: return
+		logging.info("Received Key Ack Answer From Server! : " + server_answer)
+
+		if (server_answer["STATE"] == "NOT OK"):
+			clean(lines=1)
+			logging.info("Bid Creating Failed : " + server_answer["ERROR"] )
+			print( colorize("ERROR: " + server_answer["ERROR"], 'red') )
+			input("Press any key to continue...")
+			return
+
 		if( hidden_identity ): identity = encrypt(cipher_key, str(identity))
 		if( hidden_value ): value = encrypt(cipher_key, str(value))
 
@@ -436,12 +487,10 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	'''
 
 	# Verify server certificate, verify signature message
-	certificate = fromBase64( server_answer['CERTIFICATE'] )
 	message = fromBase64(server_answer['MESSAGE'] )
-	signature = fromBase64(server_answer['SIGNATURE'] )
 	logging.info("Verifying certificate and server signature of message")
 
-	if not verify_server( certificate, message, signature ):
+	if not verify_server( server_answer['CERTIFICATE'], message, server_answer['SIGNATURE'] ):
 		logging.warning("Server Verification Failed")
 		print( colorize('Server Validation Failed!', 'red') )
 		input("Press any key to continue...")
