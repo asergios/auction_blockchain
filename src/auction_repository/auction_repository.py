@@ -17,6 +17,7 @@ logger.setLevel(logging.DEBUG)
 
 def main(args):
     pk = load_file_raw("src/auction_repository/keys/private_key.pem")
+    pkr = load_file_raw("src/auction_repository/keys/public_key_manager.pem")
     cert = load_file_raw("src/auction_repository/keys/manager.crt")
     oc = OpenConnections()
     
@@ -24,7 +25,7 @@ def main(args):
     mActions = {"CREATE":validateAuction,
                 "CHALLENGE": challengeResponse}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((args.ip_am, args.port_am))
+    sock.bind((str(args.ip_am), args.port_am))
 
     logger.info("Auction Manager running...")
     while True:

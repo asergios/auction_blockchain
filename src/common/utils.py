@@ -1,3 +1,8 @@
+# coding: utf-8
+
+import os
+
+
 # Check if a int port number is valid
 # Valid is bigger than base port number
 def check_port(port, base=1024):
@@ -6,11 +11,13 @@ def check_port(port, base=1024):
         raise argparse.ArgumentTypeError("%s is an invalid positive int value" % value)
     return ivalue
 
+
 # Load raw file from disk
 # Used to load the keys pairs from the disk
 def load_file_raw(path):
     with open(path, 'rb') as f: content = f.read()
     return content
+
 
 # classe para gerir as ligações dos multiplos clientes
 class OpenConnections:
