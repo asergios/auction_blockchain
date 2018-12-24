@@ -15,117 +15,157 @@ logger = logging.getLogger('AM')
 logger.setLevel(logging.DEBUG)
 
 def main(args):
-    pk = load_file_raw("src/auction_manager/keys/private_key.pem")
-    cert = load_file_raw("src/auction_manager/keys/manager.crt")
+    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
+    pkr = load_file_raw('src/auction_manager/keys/public_key_repository.pem')
+    cert = load_file_raw('src/auction_manager/keys/manager.crt')
     oc = OpenConnections()
     
     #switch case para tratar de mensagens
-    mActions = {"CREATE":validateAuction,
-                "CHALLENGE": challengeResponse}
+    mActions = {'CREATE':validateAuction,
+                'CHALLENGE': challengeResponse}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind((args.ip_am, args.port_am))
+    sock.bind((str(args.ip_am), args.port_am))
 
-    logger.info("Auction Manager running...")
+    logger.info('Auction Manager running...')
     while True:
         data, addr = sock.recvfrom(4096)
         j = json.loads(data)
-        logger.debug("JSON = %s", j)
-        logger.debug("ACTION = %s", j['ACTION'])
-        mActions[j["ACTION"]](j, sock, addr, oc, pk, cert)
+        logger.debug('JSON = %s', j)
+        logger.debug('ACTION = %s', j['ACTION'])
+        mActions[j['ACTION']](j, sock, addr, oc, pk, pkr, cert)
 
 #responde ao challenge do cliente; retorna um nonce
-def challengeResponse(j, sock, addr, oc, pk, cert):
-    challenge = base64.urlsafe_b64decode(j["CHALLENGE"])
-    certificate = base64.urlsafe_b64decode(j["CERTIFICATE"])
+def challengeResponse(j, sock, addr, oc, pk, pkr, cert):
+    challenge = base64.urlsafe_b64decode(j['CHALLENGE'])
+    certificate = base64.urlsafe_b64decode(j['CERTIFICATE'])
 
-    # Assinar Challenge
-    # Ver este ponto da comunicação...
-    cm = CertManager( priv_key = pk )
+    cm = CertManager(priv_key = pk)
     cr = cm.sign(challenge)
     
     nonce = oc.add(certificate)
 
-    reply = { "ACTION": "CHALLENGE_REPLY","CHALLENGE_RESPONSE": base64.urlsafe_b64encode(cr).decode(),
-              "CERTIFICATE": base64.urlsafe_b64encode(cert).decode(),
-              "NONCE": base64.urlsafe_b64encode(nonce).decode() }
-    logger.debug("Reply = %s", reply)
-
-    sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+    reply = { 'ACTION': 'CHALLENGE_REPLY',
+            'CHALLENGE_RESPONSE': base64.urlsafe_b64encode(cr).decode(),
+            'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
+            'NONCE': base64.urlsafe_b64encode(nonce).decode() }
+    reply = json.dumps(reply).encode('UTF-8')
+    logger.debug('Reply = %s', reply)
+    sock.sendto(reply, addr)
 
 
 #auction --> client request
-def validateAuction(j, sock, addr, oc, pk, cert):
-    reply = {"ACTION":"CREATE_REPLY"}
+def validateAuction(j, sock, addr, oc, pk, pkr, cert):
+    reply = {'ACTION':'CREATE_REPLY'}
 
     # Validar assinatura e certificado
     # c = base64.urlsafe_b64decode(j['CERTIFICATE'])
     # @Antonio não precisas de mandar o certificado novamente
     s = base64.urlsafe_b64decode(j['SIGNATURE'])
-    message = json.loads(j["MESSAGE"])
+    message = json.loads(j['MESSAGE'])
     nonce = base64.urlsafe_b64decode(message['NONCE'])
     c = oc.pop(nonce)
 
     cm = CertManager( cert = c, priv_key = pk )
     if not cm.verify_certificate():
-        reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "INVALID CERTIFICATE"
-        logger.error("REPLY = %s", reply)
-        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'INVALID CERTIFICATE'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
     
-    if not cm.verify_signature(s, j["MESSAGE"].encode("UTF-8")):
-        reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "INVALID SIGNATURE"
-        logger.error("REPLY = %s", reply)
-        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+    if not cm.verify_signature(s, j['MESSAGE'].encode('UTF-8')):
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'INVALID SIGNATURE'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    if "TITLE" not in message:
-        reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "MISSING TITLE"
-        logger.error("REPLY = %s", reply)
-        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+    if 'TITLE' not in message:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'MISSING TITLE'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    if "DESCRIPTION" not in message:
-        reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "MISSING DESCRIPTION"
-        logger.error("REPLY = %s", reply)
-        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+    if 'DESCRIPTION' not in message:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'MISSING DESCRIPTION'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    #ver tipos de leiloes
-    if "TYPE" not in message:
-        reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "MISSING TYPE"
-        logger.error("REPLY = %s", reply)
-        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+    if 'TYPE' not in message:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'MISSING TYPE'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    if "BID_LIMIT" not in message:
-        reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "MISSING BID_LIMIT"
-        logger.error("REPLY = %s", reply)
-        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+    type = message['TYPE']
+    if type != 1 or type != 2:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'INVALID TYPE'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    #usar o 0 para bid infinita --> não numero limite de bids
-    bid_limit = message["BID_LIMIT"]
+    if 'SUBTYPE' not in message:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'MISSING SUBTYPE'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return
+
+    subtype = message['SUBTYPE']
+    if type != 1 or type != 2:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'INVALID SUBTYPE'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return
+
+    
+    if 'AUCTION_EXPIRES' not in message:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'MISSING AUCTION_EXPIRES'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return
+
+    expires = message['AUCTION_EXPIRES']
+    if expires < 0:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'AUCTION_EXPIRES LESS THAN ZERO'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return
+
+
+    if 'BID_LIMIT' not in message:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'MISSING BID_LIMIT'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return
+
+    bid_limit = message['BID_LIMIT']
     if bid_limit < 0:
-        reply["STATE"] = "NOT OK"
-        reply["ERROR"] = "BID_LIMIT LESS THAN ZERO"
-        logger.error("REPLY = %s", reply)
-        sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'BID_LIMIT LESS THAN ZERO'
+        logger.error('REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    #oc.add(addr)
-    #json = {}
+    logger.debug(message)
+    #nonce = oc.add(addr)
+    #json = {'NONCE':nonce,}
     #sock.sendto()
-    reply["STATE"] = "OK"
-    logger.error("REPLY = %s", reply)
-    sock.sendto(json.dumps(reply).encode("UTF-8"), addr)
+    
+    reply['STATE'] = 'OK'
+    logger.error('REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Auction Manager')
     parser.add_argument('--ip_ar', type=ip_address, help='ip address auction repository', default='127.0.0.1')
     parser.add_argument('--port_ar', type=check_port, help='ip port action repository', default=5002)

@@ -45,6 +45,7 @@ def fromBase64(base64string):
 		Decodes base64 content received from server
 	'''
 	return base64.urlsafe_b64decode(base64string.encode("UTF-8"))
+	#return base64.urlsafe_b64decode(base64string)
 
 def clean(clean = False, lines = 2):
 	'''
@@ -82,6 +83,7 @@ def wait_for_answer(sock, action):
 			data, addr = sock.recvfrom(4096)
 			if data:
 				answer = json.loads(data)
+				#answer = json.loads(data.decode('UTF-8'))
 				if(answer["ACTION"] == action):
 					return answer
 				else:
