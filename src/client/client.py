@@ -5,6 +5,8 @@ import base64
 import sys
 import platform
 import subprocess
+import hashlib
+import getpass
 from .cartaodecidadao import CartaoDeCidadao
 from ..common.certmanager import CertManager
 from ..common.cryptopuzzle import CryptoPuzzle
@@ -523,20 +525,59 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	logging.info("Sending Bid To Repository")
 	sock_repository.send( json.dumps(message).encode("UTF-8") )
 	# Waiting for server response
-	server_answer = wait_for_answer(sock_repository, "")
+	server_answer = wait_for_answer(sock_repository, "OFFER_RECEIPT")
 	if not server_answer: return
 	logging.info("Received Answer From Server: " + json.dumps(server_answer))
 
 	# TODO: what will receive? receipt etc...
+	save_receipt("12345", "12345", "receipt")
 
 	pass
+
+def my_auctions():
+	pass
+
+def my_bids():
+	pass
+
+def save_receipt(auction_id, bid_id, receipt):
+	# Checking writting permissions
+	while(not os.access('src/client/receipts/', os.W_OK)):
+		print( colorize("I have no permissions to save your receipt, please give write permissions at src/client/receipts/", 'red') )
+		input("Press any key to try again...")
+		clean(lines = 1)
+
+	# Creating File
+	file = open('src/client/receipts/'+auction_id+"_"+bid_id, 'wb')
+	# Getting Password From User
+	while True:
+		pw = getpass.getpass("Please pick a password for your receipt (minimum 6 character): ")
+		if(len(pw) >= 6):
+			clean(True)
+			clean(lines=1)
+			repeat = getpass.getpass("Repeat Password: ")
+			if(pw == repeat):
+				clean(True)
+				break
+			else:
+				print( colorize('Passwords must match!', 'red') )
+				clean()
+		else:
+			print( colorize('Password must be at least 6 characters!', 'red') )
+			clean()
+
+	# Hashing Password in order to be 16 bytes long
+	secretKey = hashlib.pbkdf2_hmac('sha256', bytearray(pw,'UTF-8'), b'\x00', 1000, 16)
+	# Encrypting and Saving
+	r = encrypt(secretKey, receipt)
+	file.write(r)
+	file.close()
 
 
 def print_menu(menu):
 	'''
 		Print menu to the user
 	'''
-
 	os.system('clear')													# Clear the terminal
 	ascii = open('src/common/ascii', 'r')								# Reading the sick ascii art
 	print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
@@ -557,12 +598,16 @@ def print_menu(menu):
 # Default Menu to be printed to the user
 menu = [
     { "Create new auction": (create_new_auction, None) },
-    { "List open auctions [English Auction]": (list_auction, ("ENGLISH", ) ) },
-    { "List open auctions [Blind Auction]": (list_auction, ("BLIND", ) ) },
+    { "List Open Auctions [English Auction]": (list_auction, ("ENGLISH", ) ) },
+    { "List Open Auctions [Blind Auction]": (list_auction, ("BLIND", ) ) },
+	{ "Owned Auctions": (my_auctions, None)},
+	{ "Participated Auctions": (my_bids, None)},
 	{ "Exit" : None }
 ]
 
 def main():
+	save_receipt("12345", "12345", "receipt")
+	quit()
 	while True:
 		print_menu(menu)
 
