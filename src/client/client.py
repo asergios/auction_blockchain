@@ -417,7 +417,7 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 
 		# Verify server certificate, verify signature of challeng
 		logging.info("Verifying certificate and server signature of challenge")
-		if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['CHALLENGE_RESPONSE' ):
+		if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['CHALLENGE_RESPONSE'] ):
 			logging.warning("Server Verification Failed")
 			print( colorize('Server Validation Failed!', 'red') )
 			input("Press any key to continue...")
@@ -460,7 +460,9 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 		if( hidden_value ): value = encrypt(cipher_key, str(value))
 
 	# Ask for CryptoPuzzle
+	challenge = os.urandom(16)
 	crypto_puzzle_request = {
+								"CHALLENGE" : toBase64(challenge),
 								"ACTION" : "CRYPTOPUZZLE",
 								"CERTIFICATE" : toBase64( identity )
 							}
@@ -479,18 +481,20 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 				"MESSAGE" : {
 								"PUZZLE" : ____,
 								"STARTS_WITH" : ____,
-								"ENDS_WITH" : ____
+								"ENDS_WITH" : ____,
+								"CHALLENGE_RESPONSE" : ___,
 							}
 				"SIGNATURE" :  _____  (OF MESSAGE),
 				"CERTIFICATE" : _____
 			}
 	'''
 
-	# Verify server certificate, verify signature message
-	message = fromBase64(server_answer['MESSAGE'] )
+	# Verify server certificate, verify signature message and challenge
+	message = server_answer['MESSAGE']
 	logging.info("Verifying certificate and server signature of message")
 
-	if not verify_server( server_answer['CERTIFICATE'], message, server_answer['SIGNATURE'] ):
+	if fromBase64(message["CHALLENGE_RESPONSE"]) != challenge or \
+			not verify_server( server_answer['CERTIFICATE'], message, server_answer['SIGNATURE'] ):
 		logging.warning("Server Verification Failed")
 		print( colorize('Server Validation Failed!', 'red') )
 		input("Press any key to continue...")
