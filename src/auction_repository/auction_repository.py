@@ -8,6 +8,7 @@ import base64
 import argparse
 from ipaddress import ip_address
 from ..common.utils import check_port, load_file_raw, OpenConnections
+from ..common.db.repository_db import RDB
 from ..common.certmanager import CertManager
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -18,6 +19,7 @@ logger.setLevel(logging.DEBUG)
 def main(args):
     pk = load_file_raw('src/auction_repository/keys/private_key.pem')
     pukm = load_file_raw('src/auction_repository/keys/public_key_manager.pem')
+    db = RDB()
     #oc = OpenConnections()
     
     #switch case para tratar de mensagens
@@ -34,7 +36,7 @@ def main(args):
         mActions[j['ACTION']](j, sock, addr, pk, pukm)
 
 
-def storageAuction(j, sock, addr, pk, pkr):
+def storageAuction(j, sock, addr, pk, pkr, db):
     logger.debug('JSON = %s', j)
     cm = CertManager()
     data = cm.decrypt(base64.urlsafe_b64decode(j['DATA']), pk)
