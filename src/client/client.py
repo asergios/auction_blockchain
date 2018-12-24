@@ -70,8 +70,9 @@ def verify_server(certificate, message, signature):
 	'''
 		Verify Server Certificate and Signature
 	'''
+
 	certificate = fromBase64(certificate)
-	signature = fromBase64(certificate)
+	signature = fromBase64(signature)
 	cm = CertManager(cert = certificate)
 	return  cm.verify_certificate() and cm.verify_signature( signature , message )
 
@@ -578,7 +579,7 @@ def print_menu(menu):
 	'''
 		Print menu to the user
 	'''
-	os.system('clear')													# Clear the terminal
+	#os.system('clear')													# Clear the terminal
 	ascii = open('src/common/ascii', 'r')								# Reading the sick ascii art
 	print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 	ascii.close()
