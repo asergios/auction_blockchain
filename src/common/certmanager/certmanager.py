@@ -4,6 +4,7 @@ from OpenSSL import crypto
 from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256, SHA
 from Crypto.Signature import PKCS1_v1_5
+from Crypto.Cipher import PKCS1_OAEP
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('CM')
@@ -27,10 +28,12 @@ class CertManager:
 
             rsakey = RSA.importKey(raw)
             self.pub_key = PKCS1_v1_5.new(rsakey)
+            self.pub_key_enc = PKCS1_OAEP.new(rsakey, SHA256)
 
         if priv_key:
             rsakey = RSA.importKey(priv_key)
             self.priv_key = PKCS1_v1_5.new(rsakey)
+            self.priv_key_enc = PKCS1_OAEP.new(rsakey, SHA256)
 
     def sign(self, data, priv_key = None):
         """
@@ -63,6 +66,34 @@ class CertManager:
         digest.update(data)
 
         return public_key.verify(digest, signature)
+
+    def encrypt(self, plaintext, pub_key = None):
+        """
+            Encrypt text with given or set pub_key
+        """
+
+        public_key = pub_key
+        if not pub_key:
+            if not self.pub_key_enc:
+                logger.error("No public key given")
+                return False
+            public_key = self.pub_key_enc
+
+        return public_key.encrypt( plaintext )
+
+    def decrypt(self, ciphertext, priv_key = None):
+        """
+            Decrypt cipher_text with given or set priv_key
+        """
+
+        private_key = priv_key
+        if not priv_key:
+            if not self.priv_key_enc:
+                logger.error("No private key given")
+                return
+            private_key = self.priv_key_enc
+
+        return private_key.decrypt( ciphertext )
 
     def verify_certificate(self, cert = None):
         """
