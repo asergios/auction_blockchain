@@ -7,7 +7,9 @@ import platform
 import subprocess
 import hashlib
 import getpass
+from .util import *
 from .cartaodecidadao import CartaoDeCidadao
+from .receiptmanager import ReceiptManager
 from ..common.certmanager import CertManager
 from ..common.cryptopuzzle import CryptoPuzzle
 from ..common.cryptmanager import *
@@ -36,35 +38,6 @@ sock_repository.connect((UDP_IP, UDP_PORT_REPOSITORY))
 
 cc = CartaoDeCidadao()
 
-def toBase64(content):
-	'''
-		Converts content to base64 in order to send to server
-	'''
-	return base64.urlsafe_b64encode(content).decode()
-
-def fromBase64(base64string):
-	'''
-		Decodes base64 content received from server
-	'''
-	return base64.urlsafe_b64decode(base64string)
-
-def clean(clean = False, lines = 2):
-	'''
-		Cleans previous lines on terminal
-	'''
-	if clean:
-		sys.stdout.write("\033[K")
-		return
-
-	sys.stdout.write("\033[" + str(lines) + "F")
-	sys.stdout.write("\033[K")
-
-def colorize(string, color):
-	'''
-		Colorize String For Terminal
-	'''
-	if not color in colors: return string
-	return colors[color] + string + '\033[0m'
 
 def verify_server(certificate, message, signature):
 	'''
@@ -541,45 +514,12 @@ def my_auctions():
 def my_bids():
 	pass
 
-def save_receipt(auction_id, bid_id, receipt):
-	# Checking writting permissions
-	while(not os.access('src/client/receipts/', os.W_OK)):
-		print( colorize("I have no permissions to save your receipt, please give write permissions at src/client/receipts/", 'red') )
-		input("Press any key to try again...")
-		clean(lines = 1)
-
-	# Creating File
-	file = open('src/client/receipts/'+auction_id+"_"+bid_id, 'wb')
-	# Getting Password From User
-	while True:
-		pw = getpass.getpass("Please pick a password for your receipt (minimum 6 character): ")
-		if(len(pw) >= 6):
-			clean(True)
-			clean(lines=1)
-			repeat = getpass.getpass("Repeat Password: ")
-			if(pw == repeat):
-				clean(True)
-				break
-			else:
-				print( colorize('Passwords must match!', 'red') )
-				clean()
-		else:
-			print( colorize('Password must be at least 6 characters!', 'red') )
-			clean()
-
-	# Hashing Password in order to be 16 bytes long
-	secretKey = hashlib.pbkdf2_hmac('sha256', bytearray(pw,'UTF-8'), b'\x00', 1000, 16)
-	# Encrypting and Saving
-	r = encrypt(secretKey, receipt)
-	file.write(r)
-	file.close()
-
 
 def print_menu(menu):
 	'''
 		Print menu to the user
 	'''
-	#os.system('clear')													# Clear the terminal
+	os.system('clear')													# Clear the terminal
 	ascii = open('src/common/ascii', 'r')								# Reading the sick ascii art
 	print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 	ascii.close()

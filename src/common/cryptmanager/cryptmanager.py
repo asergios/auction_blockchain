@@ -4,7 +4,7 @@ from Crypto.Cipher import AES
 
 def encrypt(pwd, message):
 	# Convert message to bytearray
-	message = bytearray(message, 'UTF-8')
+	#message = bytearray(message, 'UTF-8')
 	# Generate IV
 	iv = os.urandom(AES.block_size)
 	# Create Cipher Engine (CBC)
@@ -32,15 +32,15 @@ def decrypt(pwd, cipher):
 
 	# Create Cipher Engine (CBC)
 	c = AES.new(pwd, AES.MODE_CBC, parts[0])
-	plaintext = ""
+	plaintext = b''
 
 	# Decrypt each block starting at the second (first one is IV)
 	for part in parts[1:-1]:
-		plaintext += c.decrypt(part).decode("UTF-8")
+		plaintext += c.decrypt(part)
 
 	# Remove padding from last block
 	tmp = c.decrypt(parts[-1])
-	plaintext += tmp[:-tmp[-1]].decode("utf-8")
+	plaintext += tmp[:-tmp[-1]]
 
 	# Return PlainText
 	return plaintext
