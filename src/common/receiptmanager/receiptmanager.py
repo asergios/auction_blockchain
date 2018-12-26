@@ -1,6 +1,6 @@
 # coding: utf-8
-from ...common.cryptmanager import *
-from ..util import *
+from ..cryptmanager import *
+from ..utils import *
 from ..cartaodecidadao import CartaoDeCidadao
 from Crypto.Hash import SHA256
 from hmac import compare_digest

@@ -7,9 +7,9 @@ import platform
 import subprocess
 import hashlib
 import getpass
-from .util import *
-from .cartaodecidadao import CartaoDeCidadao
-from .receiptmanager import ReceiptManager
+from ..common.utils import *
+from ..common.cartaodecidadao import CartaoDeCidadao
+from ..common.receiptmanager import ReceiptManager
 from ..common.certmanager import CertManager
 from ..common.cryptopuzzle import CryptoPuzzle
 from ..common.cryptmanager import *
