@@ -298,6 +298,7 @@ def list_auction(arg):
 
 		{
 			"ACTION" : "ENGLISH/BLIND",
+			"NONCE"  : _______________
 			(Optional) "AUCTION_ID" : XX
 		}
 	'''
@@ -310,6 +311,7 @@ def list_auction(arg):
 	if auction_id:
 		request["AUCTION_ID"] = auction_id
 
+	request["NONCE"] = os.urandom(64)
 	# Covert to JSON string
 	request = json.dumps(request)
 	# Send request to repository
@@ -321,7 +323,7 @@ def list_auction(arg):
 	'''
 		I will be expecting an answer in this format:
 		{
-			"SIGNED_LIST": 		// Signed list of english auctions
+			"SIGNED_LIST": 		// Signed list of auctions
 			"CERTIFICATE":		// Certificate of public key of the server
 			"LIST":				// Raw List of Auctions
 		}
@@ -383,7 +385,7 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	if (hidden_identity or hidden_value):
 		logging.info("Auction Requires to Encrypt Values, Encrypting...")
 		# Ask for key to manager
-		challenge = os.urandom(16)
+		challenge = os.urandom(64)
 		key_init = {
 						"ACTION" : "KEY_SET_INIT",
 						"CHALLENGE" : toBase64( challenge ),
@@ -406,7 +408,7 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 			return
 
 		# Generate cipher_key and encrypt it with server public_key
-		cipher_key = os.urandom(16)
+		cipher_key = os.urandom(64)
 		cm = CertManager(cert=fromBase64(server_answer['CERTIFICATE']))
 		cipher_key_enc = cm.encrypt(cipher_key)
 
@@ -442,9 +444,9 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 		if( hidden_value ): value = encrypt(cipher_key, str(value))
 
 	# Ask for CryptoPuzzle
-	challenge = os.urandom(16)
+	nonce = os.urandom(64)
 	crypto_puzzle_request = {
-								"CHALLENGE" : toBase64(challenge),
+								"NONCE" : toBase64(nonce),
 								"ACTION" : "CRYPTOPUZZLE",
 								"CERTIFICATE" : toBase64( identity )
 							}
@@ -464,7 +466,7 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 								"PUZZLE" : ____,
 								"STARTS_WITH" : ____,
 								"ENDS_WITH" : ____,
-								"CHALLENGE_RESPONSE" : ___,
+								"NONCE" : ___,
 							}
 				"SIGNATURE" :  _____  (OF MESSAGE),
 				"CERTIFICATE" : _____
@@ -475,7 +477,7 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	message = server_answer['MESSAGE']
 	logging.info("Verifying certificate and server signature of message")
 
-	if fromBase64(message["CHALLENGE_RESPONSE"]) != challenge or \
+	if fromBase64(message["NONCE"]) != nonce or \
 			not verify_server( server_answer['CERTIFICATE'], message, server_answer['SIGNATURE'] ):
 		logging.warning("Server Verification Failed")
 		print( colorize('Server Validation Failed!', 'red') )
