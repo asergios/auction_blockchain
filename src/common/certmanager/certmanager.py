@@ -67,7 +67,7 @@ class CertManager:
                 return False
             public_key = self.pub_key
 
-        digest = SHA.new()
+        digest = SHA256.new()
         digest.update(data)
 
         return public_key.verify(digest, signature)
@@ -140,7 +140,7 @@ class CertManager:
         result = store_ctx.verify_certificate()
 
         return True if not result else False
-    
+
     def get_identity(self, cert = None):
         certificate = cert
         if not cert:
@@ -148,6 +148,6 @@ class CertManager:
                 logger.error("No certificate given")
                 return False
             certificate = self.cert
-        
+
         subject = certificate.get_subject()
         return (subject.CN, subject.serialNumber[2:-1])

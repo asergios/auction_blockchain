@@ -170,6 +170,9 @@ def create_new_auction(*arg):
 
 	# Auction SubType
 	while True:
+		if new_auction['TYPE'] == 1:
+			new_auction['SUBTYPE'] = "2"
+			break
 		print(colorize('SubTypes available: \n 	1 - Public Identity\n 	2 - Hidden identity [until end of auction]', 'green'))
 		try:
 			new_auction['SUBTYPE'] = int(input("SubType: "))
@@ -356,7 +359,6 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	identity = cc.get_certificate_raw()
 
 	# Ask for value to offer
-	# TODO: go back/confirm value to offer
 	while True:
 		try:
 			value = int(input("Value to offer (EUR) : "))
@@ -366,8 +368,12 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 			continue
 		else:
 			if value >= 0:
-				clean(True)
-				break
+				confirm = input("Are you sure? Bids are irreversible [y/N]: ").upper()
+				if confirm.startswith("Y"):
+					clean(True)
+					break
+				clean()
+				continue
 			else:
 				print( colorize('Please pick a positive number.', 'red') )
 				clean()
@@ -407,13 +413,13 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 		# Building inner and outter json
 		to_sign = {
 					 "NONCE" : server_answer['NONCE'],
-					 "KEY" : toBase64(cipher_key_enc)
+					 "KEY" : toBase64(cipher_key_enc),
+					 "AUCTION": auction_id
 				  }
 		signature = cc.sign(to_sign.encode('UTF-8'))
 		key_set = {
 						"ACTION" : "KEY_SET",
-						"NONCE" : server_answer['NONCE'],
-   					 	"KEY" : toBase64(cipher_key_enc),
+						"MESSAGE" : to_sign,
 						"SIGNATURE" : toBase64(signature)
 					}
 

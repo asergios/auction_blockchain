@@ -114,4 +114,4 @@ class CartaoDeCidadao:
             Signing data with Signature Private Key
         """
         private_key = self.get_private_key()
-        return private_key.sign( data, mechanism = Mechanism.SHA1_RSA_PKCS )
+        return private_key.sign( data, mechanism = Mechanism.SHA256_RSA_PKCS )
