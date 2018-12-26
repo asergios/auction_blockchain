@@ -52,7 +52,7 @@ class CertManager:
                 return
             private_key = self.priv_key
 
-        h = SHA.new(data)
+        h = SHA256.new(data)
         return private_key.sign( h )
 
     def verify_signature(self, signature, data, pub_key = None):
