@@ -21,6 +21,9 @@ class ReceiptManager:
 		'''
 		# Checking for Permissions on Folder
 		self.check_perm()
+		# Checking existence of user dir
+		self.check_dir()
+
 		# Opening File Where Receipt Will Be Stored
 		file = open('src/client/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'wb')
 		# Getting User Password Key
@@ -34,18 +37,22 @@ class ReceiptManager:
 		file.write(result)
 		file.close()
 
-	def get_receipt(self, auction_id):
+	def get_receipt(self, auction_id, pw = None):
 		'''
 			Get Receipt
 		'''
 		# Checking for Permissions on Folder
 		self.check_perm()
+		# Checking existence of user dir
+		self.check_dir()
+
 		# Checking if such receipt exists
 		if os.path.isfile('src/client/receiptmanager/receipts/'+self.cc_number+'/'+auction_id):
 			# Opening receipt file
 			file = open('src/client/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'rb')
 			# Getting the key
-			pw = self.get_key()
+			if not pw:
+				pw = self.get_key()
 			# Decrypting Receipt
 			result = decrypt(pw, file.read())
 			file.close()
@@ -62,13 +69,32 @@ class ReceiptManager:
 			input("Press any key to continue...")
 			return None
 
+	def get_receipts(self):
+		'''
+			Get All Receipts
+		'''
+		# Checking for Permissions on Folder
+		self.check_perm()
+		# Checking existence of user dir
+		self.check_dir()
+		# Getting the key
+		pw = self.get_key()
+
+		receipts = []
+		# For Each Receipt
+		for filename in os.listdir('src/client/receiptmanager/receipts/'+self.cc_number):
+			# Ignore pwd file
+			if filename.startswith('.'): continue
+			# Add receipt to receipts list
+			receipts.append(self.get_receipt(filename, pw))
+
+		return receipts
+
+
 	def get_key(self):
 		'''
 			Getting new password from user
 		'''
-		# Checking existence of user dir
-		self.check_dir()
-
 		# Checking if there is a password already set
 		if os.path.isfile("src/client/receiptmanager/receipts/"+self.cc_number+"/.pwd"):
 			# Getting .pwd contents and sign it
