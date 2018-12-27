@@ -21,7 +21,7 @@ def main(args):
     cert = load_file_raw("src/common/certmanager/certs/manager.crt")
     oc = OpenConnections()
     db = ADB()
-    
+
     #switch case para tratar de mensagens
     mActions = {'CREATE':validateAuction,
                 'CHALLENGE': challengeResponse,
@@ -44,7 +44,7 @@ def challengeResponse(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
 
     cm = CertManager(priv_key = pk)
     cr = cm.sign(challenge)
-    
+
     nonce = oc.add(certificate)
 
     reply = { 'ACTION': 'CHALLENGE_REPLY',
@@ -74,7 +74,7 @@ def validateAuction(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
         logger.error('REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
-    
+
     if not cm.verify_signature(s, j['MESSAGE'].encode('UTF-8')):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID SIGNATURE'
@@ -127,7 +127,7 @@ def validateAuction(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    
+
     if 'AUCTION_EXPIRES' not in message:
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'MISSING AUCTION_EXPIRES'
@@ -175,9 +175,9 @@ def store_reply(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
     auction_id = data['AUCTION_ID']
     user_cc, user_addr = oc.pop(nonce)
     db.store_user_auction(user_cc, auction_id)
-    reply = {'STATE':'OK'}
+    reply = {'ACTION': 'CREATE_REPLY', 'STATE':'OK'}
     logger.debug('CLIENT REPLY = %s', reply)
-    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), user_addr)
 
 
 if __name__ == '__main__':

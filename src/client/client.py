@@ -350,17 +350,29 @@ def list_auction(arg):
 	pass
 
 def make_bid(auction_id, hidden_identity = False, hidden_value = False):
+	'''
+		Creates new bid (offer) to a given auction (auction_id)
+
+		Steps:
+			1 - Key Agreement With Auction Manager to be used on ecrypted data
+			2 - Send Bid To Repository
+			3 - Save Receipt
+
+		JSON sent to Auction Manager Description:
+
+
+	'''
 	# Scanning user CartaoDeCidadao
 	logging.info("Reading User's Cartao De Cidadao")
 	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
 	cc.scan()
 	clean(lines = 1)
 
-	# Init values
+	# Init values for the bid (value to offer and identity of user)
 	value = 0
 	identity = cc.get_certificate_raw()
 
-	# Ask for value to offer
+	# Ask user for value to offer
 	while True:
 		try:
 			value = int(input("Value to offer (EUR) : "))
@@ -380,11 +392,12 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 				print( colorize('Please pick a positive number.', 'red') )
 				clean()
 
-	# Establish connection with server
+	# Establish connection with server (We are not actually doing that, is so that the user knows something is going on)
 	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
+	# If there is any value to be hidden, send key to manager
 	if (hidden_identity or hidden_value):
 		logging.info("Auction Requires to Encrypt Values, Encrypting...")
-		# Ask for key to manager
+		# Challenger to send to manager
 		challenge = os.urandom(64)
 		key_init = {
 						"ACTION" : "KEY_SET_INIT",
@@ -395,6 +408,21 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 		logging.info("Sending Key Init Request to Manager")
 		sock_manager.send( json.dumps(key_init).encode("UTF-8") )
 		# Waiting for server response
+		'''
+			SENT MESSAGE:
+			{
+				"ACTION" : "KEY_SET_INIT",
+				"CHALLENGE" : ________,
+				"CERTIFICATE" : ________
+			}
+			EXPECTED ANSWER:
+			{
+				"ACTION" : "KEY_ANSWER",
+				"CERTIFICATE": ______,
+				"CHALLENGE_RESPONSE": _____,
+				"NONCE":_____
+			}
+		'''
 		server_answer = wait_for_answer(sock_manager, "KEY_ANSWER")
 		if not server_answer: return
 		logging.info("Received Key Init Answer From Server! : " + server_answer)
@@ -429,6 +457,23 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 		logging.info("Sending Key Set Request to Manager")
 		sock_manager.send( json.dumps(key_set).encode("UTF-8") )
 		# Waiting for server response
+		'''
+			SENT MESSAGE:
+			{
+				"ACTION" : "KEY_SET",
+				"MESSAGE" : {
+								"NONCE": _____,
+								"KEY": _______, (encrypted with manager's pubkey)
+								"AUCTION": _____ (auction_id where key will be used)
+							},
+				"SIGNATURE" : ________
+			}
+			EXPECTED ANSWER:
+			{
+				"ACTION" : "KEY_ACK",
+				"STATE": ______,
+			}
+		'''
 		server_answer = wait_for_answer(sock_manager, "KEY_ACK")
 		if not server_answer: return
 		logging.info("Received Key Ack Answer From Server! : " + server_answer)
@@ -444,34 +489,38 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 		if( hidden_value ): value = encrypt(cipher_key, str(value))
 
 	# Ask for CryptoPuzzle
-	nonce = os.urandom(64)
 	crypto_puzzle_request = {
-								"NONCE" : toBase64(nonce),
-								"ACTION" : "CRYPTOPUZZLE",
-								"CERTIFICATE" : toBase64( identity )
+								"ACTION" : "BID_INIT",
+								"CERTIFICATE" : toBase64( identity ),
+								"AUCTION_ID" : auction_id
 							}
 
 	# Send CryptoPuzzle Request
 	logging.info("Sending CryptoPuzzle request to Repository")
 	sock_repository.send( json.dumps(crypto_puzzle_request).encode("UTF-8") )
 	# Waiting for server response
+	'''
+		SENT MESSAGE:
+		{
+			"ACTION" : "BID_INIT",
+			"CERTIFICATE" : _____, (encrypted, validate with manager)
+			"AUCTION_ID" : ________
+		}
+		EXPECTED ANSWER:
+		{
+			"ACTION" : "CRYPTOPUZZLE_REPLY",
+			"MESSAGE" : {
+							"PUZZLE" : ____,
+							"STARTS_WITH" : ____,
+							"ENDS_WITH" : ____,
+						}
+			"SIGNATURE" :  _____  (OF MESSAGE),
+			"CERTIFICATE" : _____
+		}
+	'''
 	server_answer = wait_for_answer(sock_repository, "CRYPTOPUZZLE_REPLY")
 	if not server_answer: return
 	logging.info("Received CryptoPuzzle: " + json.dumps(server_answer))
-
-	'''
-		EXPECTED ANSWER:
-			{
-				"MESSAGE" : {
-								"PUZZLE" : ____,
-								"STARTS_WITH" : ____,
-								"ENDS_WITH" : ____,
-								"NONCE" : ___,
-							}
-				"SIGNATURE" :  _____  (OF MESSAGE),
-				"CERTIFICATE" : _____
-			}
-	'''
 
 	# Verify server certificate, verify signature message and challenge
 	message = server_answer['MESSAGE']
@@ -506,8 +555,26 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	# Send Offer
 	logging.info("Sending Bid To Repository")
 	sock_repository.send( json.dumps(message).encode("UTF-8") )
+	'''
+		SENT MESSAGE:
+		{
+			"ACTION" : "BID_INIT",
+			"MESSAGE" : {
+							"AUCTION" 		: ______,
+							"VALUE"			: ______, (may be encrypted)
+							"CERTIFICATE"	: ______, (encrypted)
+							"SOLUTION"		: ______,
+						},
+			"SIGNATURE" : ________
+		}
+		EXPECTED ANSWER:
+		{
+			"ACTION": "RECEIPT",
+			"RECEIPT": ________
+		}
+	'''
 	# Waiting for server response
-	server_answer = wait_for_answer(sock_repository, "OFFER_RECEIPT")
+	server_answer = wait_for_answer(sock_repository, "RECEIPT")
 	if not server_answer: return
 	logging.info("Received Answer From Server: " + json.dumps(server_answer))
 
