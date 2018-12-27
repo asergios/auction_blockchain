@@ -59,18 +59,22 @@ def load_file_raw(path):
 
 # classe para gerir as ligações dos multiplos clientes
 class OpenConnections:
-    def __init__(self):
-        self.nonce = os.urandom(16)
+    def __init__(self): 
         self.openConns = {}
 
     def add(self, data):
-        self.openConns[self.nonce] = (data)
-        rv = self.nonce
-        self.nonce = os.urandom(16)
-        return rv
+        nonce = os.urandom(16)
+        self.openConns[nonce] = data 
+        return nonce
 
     def value(self, key):
     	return self.openConns.get(key, None)
 
     def pop(self, nonce):
         return self.openConns.pop(nonce, None)
+
+    def __str__(self):
+        return self.openConns.__str__()
+
+    def __repr__(self):
+        return self.openConns.__repr__()

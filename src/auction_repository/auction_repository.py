@@ -32,17 +32,20 @@ def main(args):
         data, addr = sock.recvfrom(4096)
         j = json.loads(data)
         logger.debug('JSON = %s', j)
-        logger.debug('ACTION = %s', j['ACTION'])
-        mActions[j['ACTION']](j, sock, addr, pk, pukm)
+        mActions[j['ACTION']](j, sock, addr, pk, pukm, db)
 
 
-def storageAuction(j, sock, addr, pk, pkr, db):
-    logger.debug('JSON = %s', j)
+def storageAuction(j, sock, addr, pk, pukm, db):
     cm = CertManager()
-    data = cm.decrypt(base64.urlsafe_b64decode(j['DATA']), pk)
+    data = json.loads(cm.decrypt(base64.urlsafe_b64decode(j['DATA']), pk))
     logger.debug('DATA = %s', data)
+    auction_id = db.store_auction(data['TITLE'], data['DESCRIPTION'], data['TYPE'], data['SUBTYPE'], data['AUCTION_EXPIRES'], data['BID_LIMIT'])
+    nonce = data['NONCE']
+    data = {'NONCE':nonce, 'AUCTION_ID':auction_id}
+    reply = {'ACTION':'STORE_REPLY', 'DATA': base64.urlsafe_b64encode(cm.encrypt(json.dumps(data).encode('UTF-8'), pukm)).decode()}
+    logger.debug('MANAGER REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
     
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Auction Repository')

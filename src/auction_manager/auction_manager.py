@@ -8,6 +8,7 @@ import base64
 import argparse
 from ipaddress import ip_address
 from ..common.utils import check_port, load_file_raw, OpenConnections
+from ..common.db.manager_db import ADB
 from ..common.certmanager import CertManager
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -19,10 +20,12 @@ def main(args):
     pukr = load_file_raw('src/auction_manager/keys/public_key_repository.pem')
     cert = load_file_raw("src/common/certmanager/certs/manager.crt")
     oc = OpenConnections()
+    db = ADB()
     
     #switch case para tratar de mensagens
     mActions = {'CREATE':validateAuction,
-                'CHALLENGE': challengeResponse}
+                'CHALLENGE': challengeResponse,
+                'STORE_REPLY': store_reply}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind((str(args.ip_am), args.port_am))
 
@@ -31,12 +34,11 @@ def main(args):
         data, addr = sock.recvfrom(4096)
         j = json.loads(data)
         logger.debug('JSON = %s', j)
-        logger.debug('ACTION = %s', j['ACTION'])
-        mActions[j['ACTION']](j, sock, addr, oc, pk, pukr, cert, (str(args.ip_ar), args.port_ar))
+        mActions[j['ACTION']](j, sock, addr, oc, pk, pukr, cert, (str(args.ip_ar), args.port_ar), db)
 
 
 #responde ao challenge do cliente; retorna um nonce
-def challengeResponse(j, sock, addr, oc, pk, pukr, cert, addr_rep):
+def challengeResponse(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
     challenge = base64.urlsafe_b64decode(j['CHALLENGE'])
     certificate = base64.urlsafe_b64decode(j['CERTIFICATE'])
 
@@ -49,13 +51,12 @@ def challengeResponse(j, sock, addr, oc, pk, pukr, cert, addr_rep):
             'CHALLENGE_RESPONSE': base64.urlsafe_b64encode(cr).decode(),
             'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
             'NONCE': base64.urlsafe_b64encode(nonce).decode() }
-    reply = json.dumps(reply).encode('UTF-8')
-    logger.debug('Reply = %s', reply)
-    sock.sendto(reply, addr)
+    logger.debug('CLIENT REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
 
 #auction --> client request
-def validateAuction(j, sock, addr, oc, pk, pukr, cert, addr_rep):
+def validateAuction(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
     reply = {'ACTION':'CREATE_REPLY'}
 
     # Validar assinatura e certificado
@@ -158,23 +159,26 @@ def validateAuction(j, sock, addr, oc, pk, pukr, cert, addr_rep):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return
 
-    logger.debug("Identity = %s", cm.get_identity())
-    nonce = oc.add(addr)
+    nonce = oc.add((cm.get_identity()[1], addr))
     message['ACTION'] = 'STORE'
     message['NONCE'] = base64.urlsafe_b64encode(nonce).decode()
-
-    d = json.dumps(message).encode('UTF-8')
-    logger.debug("D = %s", d)
-    data = base64.urlsafe_b64encode(cm.encrypt(d, pukr)).decode()
-    logger.debug('DATA = %s', data)
-    request = {'ACTION':'STORE', 'DATA': data}
+    request = {'ACTION':'STORE', 'DATA': base64.urlsafe_b64encode(cm.encrypt(json.dumps(message).encode('UTF-8'), pukr)).decode()}
     logger.debug("REPOSITORY STORE = %s", request)
-
     sock.sendto(json.dumps(request).encode('UTF-8'), addr_rep)
-    
-    #reply['STATE'] = 'OK'
-    #logger.error('REPLY = %s', reply)
-    #sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+
+
+def store_reply(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
+    cm = CertManager()
+    data = json.loads(cm.decrypt(base64.urlsafe_b64decode(j['DATA']), pk))
+    logger.debug('DATA = %s', data)
+    nonce = base64.urlsafe_b64decode(data['NONCE'])
+    auction_id = data['AUCTION_ID']
+    user_cc, user_addr = oc.pop(nonce)
+    db.store_user_auction(user_cc, auction_id)
+    reply = {'STATE':'OK'}
+    logger.debug('CLIENT REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Auction Manager')

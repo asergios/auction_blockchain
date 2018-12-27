@@ -171,7 +171,7 @@ def create_new_auction(*arg):
 	# Auction SubType
 	while True:
 		if new_auction['TYPE'] == 1:
-			new_auction['SUBTYPE'] = "2"
+			new_auction['SUBTYPE'] = 2
 			break
 		print(colorize('SubTypes available: \n 	1 - Public Identity\n 	2 - Hidden identity [until end of auction]', 'green'))
 		try:
