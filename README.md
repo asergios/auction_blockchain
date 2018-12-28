@@ -12,8 +12,42 @@ Root
 |
 +--README.md
 
+## Base de Dados
+
+### Auction Manager
+
+#### Tabela para utilizadores
+
+| Columns |       Types      |
+|---------|------------------|
+| id      | **INTEGER (PK)** |
+| cc      | TEXT             |
+
+#### Tabela para mapear leilões a utilizadores
+
+|  Columns   |       Types      |
+|------------|------------------|
+| user_id    | **INTEGER (PK)** |
+| auction_id | **INTEGER (PK)** |
+
+### Auction Repository
+
+#### Tabela para os leilões
+
+| Columns |       Types      |
+|---------|------------------|
+| id      | **INTEGER (PK)** |
+| title   | TEXT             |
+| desc    | TEXT             |
+| type    | INTEGER          |
+| subtype | INTEGER          |
+| expires | INTEGER          |
+| blimit  | INTEGER          |
+| open    | INTEGER (1)      |
+
 ## Pré-requesitos
-Os pré-requisitos podem ser instalados manualmente:
+Os pré-requisitos podem ser instalados manualmente.
+Dentro da pasta src:
 
 ```
 $ python3 -m venv venv

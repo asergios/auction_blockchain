@@ -34,6 +34,8 @@ class CartaoDeCidadao:
                 lib_location = '/usr/local/lib/libpteidpkcs11.so'
             elif os.path.isfile('/usr/lib/libpteidpkcs11.so'):
                 lib_location = '/usr/lib/libpteidpkcs11.so'
+            elif os.path.isfile('/usr/local/lib64/libpteidpkcs11.so'):
+                lib_location = '/usr/local/lib64/libpteidpkcs11.so'
             else:
                 print("ERROR: libpteidpkcs11 not found!")
                 quit()

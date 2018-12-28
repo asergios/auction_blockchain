@@ -311,7 +311,8 @@ def list_auction(arg):
 	if auction_id:
 		request["AUCTION_ID"] = auction_id
 
-	request["NONCE"] = os.urandom(64)
+        #FIX
+	request["NONCE"] = base64.urlsafe_b64encode(os.urandom(64)).decode()
 	# Covert to JSON string
 	request = json.dumps(request)
 	# Send request to repository

@@ -10,13 +10,14 @@ logger.setLevel(logging.DEBUG)
 class ADB:
     def __init__(self, path='src/auction_manager/manager.db'):
         self.db = sqlite3.connect(path)
-        self.cursor = self.db.cursor()
 
     def store_user_auction(self, user_cc, auction_id):
-        self.cursor.execute('INSERT INTO users(cc) VALUES (?)', (user_cc,))
+        cursor = self.db.cursor()
+        cursor.execute('INSERT INTO users(cc) VALUES (?)', (user_cc,))
         user_id = self.cursor.lastrowid
-        self.cursor.execute('INSERT INTO auctions(user_id, auction_id) VALUES (?,?)', (user_id, auction_id))
+        cursor.execute('INSERT INTO auctions(user_id, auction_id) VALUES (?,?)', (user_id, auction_id))
+        self.db.commit()
 
     def close(self):
-        self.cursor.close()
+        self.db.commit()
         self.db.close()

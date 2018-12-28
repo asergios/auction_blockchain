@@ -10,13 +10,31 @@ logger.setLevel(logging.DEBUG)
 class RDB:
     def __init__(self, path='src/auction_repository/repository.db'):
         self.db = sqlite3.connect(path)
-        self.cursor = self.db.cursor()
 
     def store_auction(self, title, desc, atype, subtype, expires, limit):
-        self.cursor.execute('INSERT INTO auctions(title, desc, type, subtype, blimit, expires) VALUES(?,?,?,?,?,?)',
+        cursor = self.db.cursor()
+        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, blimit, expires) VALUES(?,?,?,?,?,?)',
                 (title, desc, atype, subtype, expires, limit))
-        return self.cursor.lastrowid
+        rv = cursor.lastrowid
+        self.db.commit()
+        return rv
+
+    def list_english(self, auction_id=None):
+        cursor = self.db.cursor()
+        if auction_id is None:
+            cursor.execute('SELECT * FROM auctions WHERE type=1 AND open=1')
+        else:
+            cursor.execute('SELECT * FROM auctions WHERE type=1 AND open=1 AND id=?', (auction_id,))
+        return cursor.fetchall()
+
+    def list_blind(self, auction_id=None):
+        cursor = self.db.cursor()
+        if auction_id is None:
+            cursor.execute('SELECT * FROM auctions WHERE type=2 AND open=1')
+        else:
+            cursor.execute('SELECT * FROM auctions WHERE type=2 AND open=1 AND id=?', (auction_id,))
+        return cursor.fetchall()
 
     def close(self):
-        self.cursor.close()
+        self.db.commit()
         self.db.close()
