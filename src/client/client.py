@@ -153,7 +153,7 @@ def create_new_auction(*arg):
 
 	# Auction Type
 	while True:
-		print(colorize('Types available: \n 	1 - English Auction \n 	2 - Blind Auction', 'green'))
+		print(colorize('Types available: \n 	1 - English Auction (Public Values) \n 	2 - Blind Auction (Hidden Values Revealed at the end)', 'green'))
 		try:
 			new_auction['TYPE'] = int(input("Type: "))
 		except ValueError:
@@ -171,6 +171,7 @@ def create_new_auction(*arg):
 	# Auction SubType
 	while True:
 		if new_auction['TYPE'] == 1:
+			# English Auction must have hidden identity
 			new_auction['SUBTYPE'] = 2
 			break
 		print(colorize('SubTypes available: \n 	1 - Public Identity\n 	2 - Hidden identity [until end of auction]', 'green'))
@@ -186,6 +187,27 @@ def create_new_auction(*arg):
 				break
 			else:
 				print( colorize('Please pick one of the available subtypes.', 'red') )
+				clean(lines=5)
+
+	# Who hides the information
+	while True:
+		if new_auction['TYPE'] == 1:
+			# English Auction identity must be hidden by manager
+			new_auction['WHO_HIDES'] = 2
+			break
+		print(colorize('Who Hides The Information: \n 	1 - Client (Bid Validation Processed At The End Of Auction) \n 2 - Manager (Bid Validation Processed When Sent)', 'green'))
+		try:
+			new_auction['WHO_HIDES'] = int(input("Who Hides: "))
+		except ValueError:
+			print( colorize('Must be a number!', 'red') )
+			clean(lines=5)
+			continue
+		else:
+			if new_auction['WHO_HIDES'] == 1 or new_auction['WHO_HIDES'] == 2:
+				clean(True)
+				break
+			else:
+				print( colorize('Please pick one of the available options.', 'red') )
 				clean(lines=5)
 
 	# Time for Auction expiration (hours)
