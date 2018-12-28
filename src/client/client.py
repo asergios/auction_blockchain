@@ -37,6 +37,7 @@ sock_repository = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock_repository.connect((UDP_IP, UDP_PORT_REPOSITORY))
 
 cc = CartaoDeCidadao()
+auction_list = []
 
 
 def verify_server(certificate, message, signature):
@@ -195,7 +196,7 @@ def create_new_auction(*arg):
 			# English Auction identity must be hidden by manager
 			new_auction['WHO_HIDES'] = 2
 			break
-		print(colorize('Who Hides The Information: \n 	1 - Client (Bid Validation Processed At The End Of Auction) \n 2 - Manager (Bid Validation Processed When Sent)', 'green'))
+		print(colorize('Who Hides The Information: \n 	1 - Client (Bid Validation Processed At The End Of Auction) \n 	2 - Manager (Bid Validation Processed When Sent)', 'green'))
 		try:
 			new_auction['WHO_HIDES'] = int(input("Who Hides: "))
 		except ValueError:
@@ -329,27 +330,20 @@ def list_auction(arg):
 	auction_id = arg[1] if 1 < len(arg) else None
 
 	request = {"ACTION" : auction_type}
-	nonce = os.urandom(64)
 	if auction_id:
 		request["AUCTION_ID"] = auction_id
 
+	# Nonce for server
+	nonce = os.urandom(64)
 	request["NONCE"] = toBase64(nonce)
 	# Covert to JSON string
 	request = json.dumps(request)
 	# Send request to repository
 	sock_repository.send(request.encode("UTF-8"))
 	# Waiting for server response
-	server_answer = wait_for_answer(sock_repository, "ENGLISH_REPLY")
+	server_answer = wait_for_answer(sock_repository, auction_type+"_REPLY")
 	if not server_answer: return
 
-	'''
-		I will be expecting an answer in this format:
-		{
-			"SIGNED_LIST": 		// Signed list of auctions
-			"CERTIFICATE":		// Certificate of public key of the server
-			"LIST":				// Raw List of Auctions
-		}
-	'''
 	server_signed = nonce + json.dumps(server_answer['LIST']).encode('UTF-8')
 
 	# Verify server certificate and verify signature of auction list
@@ -357,19 +351,13 @@ def list_auction(arg):
 		print( colorize('Server Validation Failed!', 'red') )
 		quit()
 
-	# TODO: rest of this
+	auctions = []
+	auction_list = server_answer['LIST']
+	for idx, auction in enumerate(auction_list):
+		auctions.append({auction["TITLE"] : (list_auction, (auction_type, idx)) })
 
-	# Sample for testing
-	auctions = [
-	    { "Ovos a Acabar o Prazo": (list_auction, (auction_type, 12) ) },
-	    { "Carro": (list_auction, (auction_type, 13) ) },
-	    { "Rare Pepe": (list_auction, (auction_type, 14) ) },
-		{ "Exit" : (print_menu, menu) }
-	]
-
-	print(server_answer['LIST'])
-	input("")
-	pass
+	auctions.append({ "Exit" : None })
+	print_menu(auctions)
 
 def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 	'''
@@ -616,22 +604,23 @@ def print_menu(menu):
 	'''
 		Print menu to the user
 	'''
-	os.system('clear')													# Clear the terminal
-	ascii = open('src/common/ascii', 'r')								# Reading the sick ascii art
-	print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
-	ascii.close()
-	print('\n')
-	for item in menu:													# Printing the menu together with the index
-		print( str(menu.index(item) + 1) + " - " + list(item.keys())[0] )
+	while True:
+		os.system('clear')													# Clear the terminal
+		ascii = open('src/common/ascii', 'r')								# Reading the sick ascii art
+		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
+		ascii.close()
+		print('\n')
+		for item in menu:													# Printing the menu together with the index
+			print( str(menu.index(item) + 1) + " - " + list(item.keys())[0] )
 
-	choice = input(">> ")
+		choice = input(">> ")
 
-	try:																# Reading the choice
-		if int(choice) <= 0 : raise ValueError
-		if list(menu[int(choice) - 1].values())[0] == None: quit()
-		list(menu[int(choice) - 1].values())[0][0](list(menu[int(choice) - 1].values())[0][1])
-	except (ValueError, IndexError):
-		pass
+		try:																# Reading the choice
+			if int(choice) <= 0 : raise ValueError
+			if list(menu[int(choice) - 1].values())[0] == None: return
+			list(menu[int(choice) - 1].values())[0][0](list(menu[int(choice) - 1].values())[0][1])
+		except (ValueError, IndexError):
+			pass
 
 # Default Menu to be printed to the user
 menu = [
@@ -644,8 +633,7 @@ menu = [
 ]
 
 def main():
-	while True:
-		print_menu(menu)
+	print_menu(menu)
 
 
 if __name__ == "__main__":
