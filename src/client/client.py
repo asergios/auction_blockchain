@@ -307,18 +307,17 @@ def list_auction(arg):
 	auction_id = arg[1] if 1 < len(arg) else None
 
 	request = {"ACTION" : auction_type}
-
+	nonce = os.urandom(64)
 	if auction_id:
 		request["AUCTION_ID"] = auction_id
 
-        #FIX
-	request["NONCE"] = base64.urlsafe_b64encode(os.urandom(64)).decode()
+	request["NONCE"] = toBase64(nonce)
 	# Covert to JSON string
 	request = json.dumps(request)
 	# Send request to repository
 	sock_repository.send(request.encode("UTF-8"))
 	# Waiting for server response
-	server_answer = wait_for_answer(sock_repository, "TODO")
+	server_answer = wait_for_answer(sock_repository, "ENGLISH_REPLY")
 	if not server_answer: return
 
 	'''
@@ -329,10 +328,10 @@ def list_auction(arg):
 			"LIST":				// Raw List of Auctions
 		}
 	'''
+	server_signed = nonce + json.dumps(server_answer['LIST']).encode('UTF-8')
 
 	# Verify server certificate and verify signature of auction list
-	plain = fromBase64(server_answer['LIST'] )
-	if not verify_server( server_answer['CERTIFICATE'], plain, server_answer['SIGNED_LIST'] ):
+	if not verify_server( server_answer['CERTIFICATE'], server_signed, server_answer['SIGNED_LIST'] ):
 		print( colorize('Server Validation Failed!', 'red') )
 		quit()
 
@@ -346,8 +345,8 @@ def list_auction(arg):
 		{ "Exit" : (print_menu, menu) }
 	]
 
-	print_menu(auctions)
-
+	print(server_answer['LIST'])
+	input("")
 	pass
 
 def make_bid(auction_id, hidden_identity = False, hidden_value = False):

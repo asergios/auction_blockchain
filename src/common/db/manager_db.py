@@ -14,7 +14,7 @@ class ADB:
     def store_user_auction(self, user_cc, auction_id):
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO users(cc) VALUES (?)', (user_cc,))
-        user_id = self.cursor.lastrowid
+        user_id = cursor.lastrowid
         cursor.execute('INSERT INTO auctions(user_id, auction_id) VALUES (?,?)', (user_id, auction_id))
         self.db.commit()
 
