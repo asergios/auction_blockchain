@@ -16,19 +16,21 @@ Root
 
 ### Auction Manager
 
-#### Tabela para utilizadores
-
-| Columns |       Types      |
-|---------|------------------|
-| id      | **INTEGER (PK)** |
-| cc      | TEXT             |
-
 #### Tabela para mapear leilões a utilizadores
 
 |  Columns   |       Types      |
 |------------|------------------|
-| user_id    | **INTEGER (PK)** |
+| cc         | **TEXT (PK)**    |
 | auction_id | **INTEGER (PK)** |
+
+#### Tabela para guardar chaves dos utilizadores
+
+|  Columns   |       Types      |
+|------------|------------------|
+| cc         | **TEXT (PK)**    |
+| auction_id | **INTEGER (PK)** |
+| cert       | TEXT             |
+| key        | TEXT             |
 
 ### Auction Repository
 

@@ -9,7 +9,7 @@ cd ../src/auction_repository
 if [ ! -f $DB ]; then
   echo -e "Create auction repository db"
   sqlite3 $DB <<EOF
-create table auctions (id INTEGER PRIMARY KEY, title TEXT, desc TEXT, type INTEGER, subtype INTEGER, expires INTEGER, blimit INTEGER, open INTEGER DEFAULT 1);
+CREATE TABLE auctions (id INTEGER PRIMARY KEY, title TEXT, desc TEXT, type INTEGER, subtype INTEGER, expires INTEGER, blimit INTEGER, open INTEGER DEFAULT 1);
 EOF
 fi
 

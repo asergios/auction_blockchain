@@ -9,8 +9,8 @@ cd ../src/auction_manager
 if [ ! -f $DB ]; then
   echo -e "Create auction manager db"
   sqlite3 $DB <<EOF
-create table users (id INTEGER PRIMARY KEY, cc TEXT);
-create table auctions (user_id INTEGER, auction_id INTEGER, PRIMARY KEY (user_id, auction_id))
+CREATE TABLE auctions(cc TEXT, auction_id INTEGER, PRIMARY KEY (cc, auction_id));
+CREATE TABLE keys(cc TEXT, auction_id INTEGER, cert TEXT, key TEXT, PRIMARY KEY(cc, auction_id));
 EOF
 fi
 

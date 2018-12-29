@@ -364,7 +364,7 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 		Creates new bid (offer) to a given auction (auction_id)
 
 		Steps:
-			1 - Key Agreement With Auction Manager to be used on ecrypted data
+			1 - Key Agreement With Auction Manager to be used on encrypted data
 			2 - Send Bid To Repository
 			3 - Save Receipt
 

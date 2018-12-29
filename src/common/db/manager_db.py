@@ -3,9 +3,11 @@
 import sqlite3
 import logging
 
+
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('RDB')
 logger.setLevel(logging.DEBUG)
+
 
 class ADB:
     def __init__(self, path='src/auction_manager/manager.db'):
@@ -13,9 +15,12 @@ class ADB:
 
     def store_user_auction(self, user_cc, auction_id):
         cursor = self.db.cursor()
-        cursor.execute('INSERT INTO users(cc) VALUES (?)', (user_cc,))
-        user_id = cursor.lastrowid
-        cursor.execute('INSERT INTO auctions(user_id, auction_id) VALUES (?,?)', (user_id, auction_id))
+        cursor.execute('INSERT INTO auctions(cc, auction_id) VALUES (?,?)', (user_cc, auction_id))
+        self.db.commit()
+
+    def store_user_key(self, cc, auction_id, cert, key):
+        cursor = self.db.cursor()
+        cursor.execute('INSERT INTO keys(cc, auction_id, cert, key) VALUES (?,?,?,?)', (cc, auction_id, cert, key))
         self.db.commit()
 
     def close(self):
