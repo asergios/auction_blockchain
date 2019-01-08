@@ -151,3 +151,15 @@ class CertManager:
 
         subject = certificate.get_subject()
         return (subject.CN, subject.serialNumber[2:-1])
+
+    @staticmethod
+    def get_cert_by_name(cert_name):
+        '''
+            Returns raw certificate from certs directory
+        '''
+        try:
+            f = open('src/common/certmanager/certs/' + cert_name, 'r')
+            return f.read()
+        except Exception as e:
+            logger.error("Unable to read certificate: %s", cert_name)
+            return None

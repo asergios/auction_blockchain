@@ -3,6 +3,8 @@
 import os
 import sys
 import base64
+import time
+import datetime
 
 colors = {
 		'blue': '\033[94m',
@@ -22,6 +24,14 @@ def fromBase64(base64string):
 		Decodes base64 content received from server
 	'''
 	return base64.urlsafe_b64decode(base64string)
+
+def print_timer(timestamp, lines):
+	while True:
+		seconds = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime.now()).total_seconds()
+		clean(lines=lines)
+		print(colorize('ENDS IN:	', 'pink') + str(datetime.timedelta(seconds=seconds)))
+		sys.stdout.write("\033["+str(lines)+"B")
+		time.sleep(0.2)
 
 def clean(clean = False, lines = 2):
 	'''
@@ -59,12 +69,12 @@ def load_file_raw(path):
 
 # classe para gerir as ligações dos multiplos clientes
 class OpenConnections:
-    def __init__(self): 
+    def __init__(self):
         self.openConns = {}
 
     def add(self, data):
         nonce = os.urandom(16)
-        self.openConns[nonce] = data 
+        self.openConns[nonce] = data
         return nonce
 
     def value(self, key):

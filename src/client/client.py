@@ -7,6 +7,7 @@ import platform
 import subprocess
 import hashlib
 import getpass
+from multiprocessing import Process
 from ..common.utils import *
 from ..common.cartaodecidadao import CartaoDeCidadao
 from ..common.receiptmanager import ReceiptManager
@@ -330,6 +331,7 @@ def list_auction(arg):
 	auction_id = arg[1] if 1 < len(arg) else None
 
 	request = {"ACTION" : auction_type}
+	# If get information about a particular auction
 	if auction_id:
 		request["AUCTION_ID"] = auction_id
 
@@ -344,34 +346,112 @@ def list_auction(arg):
 	server_answer = wait_for_answer(sock_repository, auction_type+"_REPLY")
 	if not server_answer: return
 
-	server_signed = nonce + json.dumps(server_answer['LIST']).encode('UTF-8')
+	'''
+		Expected answer
+
+		IF AUCTION_ID NOT GIVEN:
+		{
+			'CERTIFICATE' : ____,
+			'SIGNATURE' : ____, (of 'MESSAGE')
+			'MESSAGE' : {
+							"NONCE" : ____,
+							"LIST" : [{'TITLE':__, 'AUCTION_ID':___},{'TITLE':__, 'AUCTION_ID':___},...],
+						}
+		}
+
+		IF GIVEN AUCTION_ID:
+		{
+			'CERTIFICATE' : ____,
+			'SIGNATURE' : ____, (of 'MESSAGE')
+			'MESSAGE' : {
+							"NONCE" : ____,
+							"AUCTION" : {
+											"AUCTION_ID" : ____,
+											"TITLE" : _____,
+											"DESCRIPTION" : _____,
+											"TYPE" : _____,
+											"SUBTYPE" : ____,
+											"WHO_HIDES": ____,
+											"ENDING_TIMESTAMP" : ____,
+											"BIDS" : []
+										}
+						}
+		}
+	'''
+
 
 	# Verify server certificate and verify signature of auction list
-	if not verify_server( server_answer['CERTIFICATE'], server_signed, server_answer['SIGNED_LIST'] ):
+	if not verify_server( server_answer['CERTIFICATE'], server_answer['MESSAGE'], server_answer['SIGNATURE'] ):
 		print( colorize('Server Validation Failed!', 'red') )
 		quit()
 
-	auctions = []
-	auction_list = server_answer['LIST']
-	for idx, auction in enumerate(auction_list):
-		auctions.append({auction["TITLE"] : (list_auction, (auction_type, idx)) })
+	# In case of getting a list of auctions
+	if not auction_id:
+		auctions = []
+		auction_list = server_answer['MESSAGE']['LIST']
+		# test subject comment line above and verify_server to use it
+		# auction_list = [{'TITLE': 'test', 'AUCTION_ID': 1},{'TITLE': 'test2', 'AUCTION_ID': 2}]
 
-	auctions.append({ "Exit" : None })
-	print_menu(auctions)
+		# Build Titles Of Auctions To Be printed
+		for auction in auction_list:
+			auctions.append({auction["TITLE"] : (list_auction, (auction_type, auction["AUCTION_ID"])) })
+		auctions.append({ "Exit" : None })
 
-def make_bid(auction_id, hidden_identity = False, hidden_value = False):
+		# Print the menu
+		print_menu(auctions)
+
+	# In case of getting a particular auction
+	else:
+		# Printing Auction Information
+		auction = server_answer['MESSAGE']['AUCTION']
+		# test subject comment line above and verify_server to use it
+		#auction = {"AUCTION_ID" : 1, "TITLE" : "Tomatoes", "DESCRIPTION" : "Tomatoes from my beautiful farm",
+		#				"TYPE" : 1, "SUBTYPE" : 2, "WHO_HIDES": 1, "ENDING_TIMESTAMP" : 1548979200, "BIDS" : [] }
+
+		# Translating Type/Subtype/WhoHide in order for user to understand
+		auction["TYPE"] = "ENGLISH" if auction["TYPE"] == 1 else "BLIND"
+		auction["SUBTYPE"] = "PUBLIC IDENTITY" if auction["SUBTYPE"] == 1 else "HIDDEN IDENTITY"
+		auction["WHO_HIDES"] = "CLIENT" if auction["WHO_HIDES"] == 1 else "SERVER"
+
+		# Building Infomation to print
+		auction_info = []
+		auction_info.append( colorize('TITLE:		', 'pink') + auction["TITLE"])
+		auction_info.append( colorize('DESCRIPTION:	', 'pink') + auction["DESCRIPTION"] )
+		auction_info.append( colorize('TYPE:		', 'pink') + auction["TYPE"] )
+		auction_info.append( colorize('SUBTYPE:	', 'pink') + auction["SUBTYPE"] )
+		auction_info.append( colorize('HIDDEN BY:	', 'pink') + auction["WHO_HIDES"] )
+		auction_info.append( colorize('BIDS (NOT YET DEFINED):	', 'pink') + str(auction["BIDS"]) )
+		auction_info.append( colorize('ENDS IN:	', 'pink') )
+		auction_info.append( "======================================================" )
+
+		# Bulding Menu With Options For The Client
+		menu = []
+		menu.append({"Make Offer" : (make_bid, (auction["AUCTION_ID"], \
+					auction["WHO_HIDES"] == 1, auction["SUBTYPE"] == 2, \
+					auction["TYPE"] == 2))})
+		menu.append({ "Exit" : None })
+
+		# Print Menu
+		print_menu(menu, auction_info, auction["ENDING_TIMESTAMP"])
+
+def make_bid(arg):
 	'''
 		Creates new bid (offer) to a given auction (auction_id)
 
 		Steps:
-			1 - Key Agreement With Auction Manager to be used on encrypted data
+			1 - If there are values to be encrypted by client: encrypt them with generated key
+				If there are values to be encrypted by manager: encrypt them with manager public key
 			2 - Send Bid To Repository
 			3 - Save Receipt
 
-		JSON sent to Auction Manager Description:
-
-
 	'''
+
+	# Reading arguments
+	auction_id = arg[0]
+	client_hides = arg[1]
+	hidden_identity = arg[2]
+	hidden_value = arg[3]
+
 	# Scanning user CartaoDeCidadao
 	logging.info("Reading User's Cartao De Cidadao")
 	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
@@ -402,101 +482,22 @@ def make_bid(auction_id, hidden_identity = False, hidden_value = False):
 				print( colorize('Please pick a positive number.', 'red') )
 				clean()
 
-	# Establish connection with server (We are not actually doing that, is so that the user knows something is going on)
-	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
-	# If there is any value to be hidden, send key to manager
+	# Preparing data
+	print( colorize( "Preparing data, please wait...", 'pink' ) )
+	# If there is any value to be hidden
 	if (hidden_identity or hidden_value):
 		logging.info("Auction Requires to Encrypt Values, Encrypting...")
-		# Challenger to send to manager
-		challenge = os.urandom(64)
-		key_init = {
-						"ACTION" : "KEY_SET_INIT",
-						"CHALLENGE" : toBase64( challenge ),
-						"CERTIFICATE" : toBase64( cc.get_certificate_raw)
-					  }
-		# Sending Request
-		logging.info("Sending Key Init Request to Manager")
-		sock_manager.send( json.dumps(key_init).encode("UTF-8") )
-		# Waiting for server response
-		'''
-			SENT MESSAGE:
-			{
-				"ACTION" : "KEY_SET_INIT",
-				"CHALLENGE" : ________,
-				"CERTIFICATE" : ________
-			}
-			EXPECTED ANSWER:
-			{
-				"ACTION" : "KEY_ANSWER",
-				"CERTIFICATE": ______,
-				"CHALLENGE_RESPONSE": _____,
-				"NONCE":_____
-			}
-		'''
-		server_answer = wait_for_answer(sock_manager, "KEY_ANSWER")
-		if not server_answer: return
-		logging.info("Received Key Init Answer From Server! : " + server_answer)
+		if client_hides:
+			# Generate cipher_key and encrypt values
+			cipher_key = os.urandom(64)
+			if( hidden_identity ): identity = encrypt(cipher_key, str(identity))
+			if( hidden_value ): value = encrypt(cipher_key, str(value))
 
-		# Verify server certificate, verify signature of challeng
-		logging.info("Verifying certificate and server signature of challenge")
-		if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['CHALLENGE_RESPONSE'] ):
-			logging.warning("Server Verification Failed")
-			print( colorize('Server Validation Failed!', 'red') )
-			input("Press any key to continue...")
-			return
-
-		# Generate cipher_key and encrypt it with server public_key
-		cipher_key = os.urandom(64)
-		cm = CertManager(cert=fromBase64(server_answer['CERTIFICATE']))
-		cipher_key_enc = cm.encrypt(cipher_key)
-
-		# Building inner and outter json
-		to_sign = {
-					 "NONCE" : server_answer['NONCE'],
-					 "KEY" : toBase64(cipher_key_enc),
-					 "AUCTION": auction_id
-				  }
-		signature = cc.sign(to_sign.encode('UTF-8'))
-		key_set = {
-						"ACTION" : "KEY_SET",
-						"MESSAGE" : to_sign,
-						"SIGNATURE" : toBase64(signature)
-					}
-
-		# Sending Request
-		logging.info("Sending Key Set Request to Manager")
-		sock_manager.send( json.dumps(key_set).encode("UTF-8") )
-		# Waiting for server response
-		'''
-			SENT MESSAGE:
-			{
-				"ACTION" : "KEY_SET",
-				"MESSAGE" : {
-								"NONCE": _____,
-								"KEY": _______, (encrypted with manager's pubkey)
-								"AUCTION": _____ (auction_id where key will be used)
-							},
-				"SIGNATURE" : ________
-			}
-			EXPECTED ANSWER:
-			{
-				"ACTION" : "KEY_ACK",
-				"STATE": ______,
-			}
-		'''
-		server_answer = wait_for_answer(sock_manager, "KEY_ACK")
-		if not server_answer: return
-		logging.info("Received Key Ack Answer From Server! : " + server_answer)
-
-		if (server_answer["STATE"] == "NOT OK"):
-			clean(lines=1)
-			logging.info("Bid Creating Failed : " + server_answer["ERROR"] )
-			print( colorize("ERROR: " + server_answer["ERROR"], 'red') )
-			input("Press any key to continue...")
-			return
-
-		if( hidden_identity ): identity = encrypt(cipher_key, str(identity))
-		if( hidden_value ): value = encrypt(cipher_key, str(value))
+		else:
+			manager_cert = CertManager.get_cert_by_name('manager.crt')
+			cm = CertManager(manager_cert)
+			if( hidden_identity ): identity = cm.encrypt(str(identity))
+			if( hidden_value ): value = cm.encrypt(str(value))
 
 	# Ask for CryptoPuzzle
 	crypto_puzzle_request = {
@@ -600,7 +601,7 @@ def my_bids():
 	pass
 
 
-def print_menu(menu):
+def print_menu(menu, info_to_print = None, timestamp = None):
 	'''
 		Print menu to the user
 	'''
@@ -610,10 +611,24 @@ def print_menu(menu):
 		print( colorize(ascii.read(), 'pink') )								# Printing the ascii art as pink
 		ascii.close()
 		print('\n')
-		for item in menu:													# Printing the menu together with the index
+
+		# Print info if there is any
+		if info_to_print:
+			for info in info_to_print:
+				print(info)
+
+		# Printing the menu together with the index
+		for item in menu:
 			print( str(menu.index(item) + 1) + " - " + list(item.keys())[0] )
 
-		choice = input(">> ")
+		# Print Count Down For Auction
+		if info_to_print:
+			p = Process(target=print_timer, args=(timestamp,4))
+			p.start()
+			choice = input(">> ")
+			p.terminate()
+		else:
+			choice = input(">> ")
 
 		try:																# Reading the choice
 			if int(choice) <= 0 : raise ValueError
