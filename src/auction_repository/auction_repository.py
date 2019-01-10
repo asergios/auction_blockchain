@@ -32,7 +32,7 @@ def main(args):
     cert = load_file_raw("src/common/certmanager/certs/repository.crt")
     db = RDB()
     #oc = OpenConnections()
-    
+
     signal.signal(signal.SIGINT, partial(signal_handler, addr))
 
     #switch case para tratar de mensagens
@@ -76,13 +76,12 @@ def list_english(j, sock, addr, pk, pukm, cert, db):
         d = {'TITLE':row[1], 'DESCRIPTION':row[2], 'TYPE':row[3], 'SUBTYPE':row[4], 'AUCTION_EXPIRES':row[5], 'BID_LIMIT':row[6]}
         l.append(d)
 
-    challenge = nonce + json.dumps(l).encode('UTF-8')
-    
-    logger.debug("C = %s", challenge)
+    #logger.debug("C = %s", challenge)
 
+    message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
     cm = CertManager(priv_key = pk)
-    sl = cm.sign(challenge)
-    
+    sl = cm.sign(json.dumps(message).encode('UTF-8'))
+
     message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
     reply = { 'ACTION': 'ENGLISH_REPLY',
             'SIGNATURE': base64.urlsafe_b64encode(sl).decode(),
@@ -104,16 +103,15 @@ def list_blind(j, sock, addr, pk, pukm, cert, db):
     for row in rows:
         d = {'TITLE':row[1], 'DESCRIPTION':row[2], 'TYPE':row[3], 'SUBTYPE':row[4], 'AUCTION_EXPIRES':row[5], 'BID_LIMIT':row[6]}
         l.append(d)
-    
-    challenge = nonce + json.dumps(l).encode('UTF-8')
 
-    logger.debug("C = %s", challenge)
-
-    cm = CertManager(priv_key = pk)
-    sl = cm.sign(challenge)
+    #logger.debug("C = %s", challenge)
 
     message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
-    reply = { 'ACTION': 'ENGLISH_REPLY',
+    cm = CertManager(priv_key = pk)
+    sl = cm.sign(json.dumps(message).encode('UTF-8'))
+
+    #message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
+    reply = { 'ACTION': 'BLIND_REPLY',
             'SIGNATURE': base64.urlsafe_b64encode(sl).decode(),
             'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
             'MESSAGE': message}
@@ -128,7 +126,7 @@ def exit(j, sock, addr, pk, pukm, cert, db):
     db.close()
     return True
 
-    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Auction Repository')
     parser.add_argument('--ip_ar', type=ip_address, help='ip address auction repository', default='127.0.0.1')

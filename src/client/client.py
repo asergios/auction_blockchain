@@ -379,18 +379,13 @@ def list_auction(arg):
 		}
 	'''
 
-
-        # Verify server certificate and verify signature of auction list
-        # TODO: Fix this...
-        message = server_answer['MESSAGE']
-        if 'LIST' in message: 
-            challenge =  base64.urlsafe_b64decode(message['NONCE']) + message['LIST']
-        elif 'AUCTION' in message:
-            challenge = base64.urlsafe_b64decode(message['NONCE']) + message['AUCTION']
-            
-	if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['SIGNATURE'] ):
+	# Verify server certificate and verify signature of auction list
+	challenge = json.dumps(server_answer['MESSAGE']).encode('UTF-8')
+	if not verify_server(server_answer['CERTIFICATE'], challenge, server_answer['SIGNATURE'] ) \
+		or not fromBase64(server_answer['MESSAGE']['NONCE']) == nonce:
 		print( colorize('Server Validation Failed!', 'red') )
-		quit()
+		input()
+		return
 
 	# In case of getting a list of auctions
 	if not auction_id:
