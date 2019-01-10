@@ -82,11 +82,12 @@ def list_english(j, sock, addr, pk, pukm, cert, db):
 
     cm = CertManager(priv_key = pk)
     sl = cm.sign(challenge)
-
+    
+    message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
     reply = { 'ACTION': 'ENGLISH_REPLY',
-            'SIGNED_LIST': base64.urlsafe_b64encode(sl).decode(),
+            'SIGNATURE': base64.urlsafe_b64encode(sl).decode(),
             'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
-            'LIST': l }
+            'MESSAGE': message}
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
@@ -111,10 +112,11 @@ def list_blind(j, sock, addr, pk, pukm, cert, db):
     cm = CertManager(priv_key = pk)
     sl = cm.sign(challenge)
 
-    reply = { 'ACTION': 'BLIND_REPLY',
-            'SIGNED_LIST': base64.urlsafe_b64encode(sl).decode(),
+    message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
+    reply = { 'ACTION': 'ENGLISH_REPLY',
+            'SIGNATURE': base64.urlsafe_b64encode(sl).decode(),
             'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
-            'LIST': l }
+            'MESSAGE': message}
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
