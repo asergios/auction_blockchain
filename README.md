@@ -36,16 +36,19 @@ Root
 
 #### Tabela para os leilões
 
-| Columns |       Types      |
-|---------|------------------|
-| id      | **INTEGER (PK)** |
-| title   | TEXT             |
-| desc    | TEXT             |
-| type    | INTEGER          |
-| subtype | INTEGER          |
-| expires | INTEGER          |
-| blimit  | INTEGER          |
-| open    | INTEGER (1)      |
+| Columns  |       Types      |
+|----------|------------------|
+| id       | **INTEGER (PK)** |
+| title    | TEXT             |
+| desc     | TEXT             |
+| type     | INTEGER          |
+| subtype  | INTEGER          |
+| duration | INTEGER          |
+| start    | DATETIME         |
+| stop     | DATETIME         |
+| expires  | INTEGER          |
+| blimit   | INTEGER          |
+| open     | INTEGER (1)      |
 
 ## Pré-requesitos
 Os pré-requisitos podem ser instalados manualmente.

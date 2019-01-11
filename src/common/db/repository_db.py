@@ -2,6 +2,7 @@
 
 import sqlite3
 import logging
+from datetime import datetime, timedelta
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('ADB')
@@ -11,10 +12,12 @@ class RDB:
     def __init__(self, path='src/auction_repository/repository.db'):
         self.db = sqlite3.connect(path)
 
-    def store_auction(self, title, desc, atype, subtype, expires, limit):
+    def store_auction(self, title, desc, atype, subtype, duration, limit):
+        start = datetime.now()
+        stop = start + timedelta(hours=duration) if duration > 0 else 0
         cursor = self.db.cursor()
-        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, blimit, expires) VALUES(?,?,?,?,?,?)',
-                (title, desc, atype, subtype, expires, limit))
+        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, duration, start, stop, blimit) VALUES(?,?,?,?,?,?,?,?)',
+                (title, desc, atype, subtype, duration, start, stop, limit))
         rv = cursor.lastrowid
         self.db.commit()
         return rv

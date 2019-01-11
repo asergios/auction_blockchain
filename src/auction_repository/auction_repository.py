@@ -39,6 +39,7 @@ def main(args):
     mActions = {'STORE':storage_auction,
             'ENGLISH':list_english,
             'BLIND':list_blind,
+            'BID_INIT':bid_init
             'EXIT':exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -71,18 +72,29 @@ def list_english(j, sock, addr, pk, pukm, cert, db):
     if 'AUCTION_ID' in j:
         auction_id = j['AUCTION_ID']
     rows = db.list_english(auction_id)
-    l = []
-    for row in rows:
-        d = {'TITLE':row[1], 'DESCRIPTION':row[2], 'TYPE':row[3], 'SUBTYPE':row[4], 'AUCTION_EXPIRES':row[5], 'BID_LIMIT':row[6]}
-        l.append(d)
 
-    #logger.debug("C = %s", challenge)
-
-    message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
+    if auction_id is None:
+        l = []
+        for row in rows:
+            d = {'AUCTION_ID':row[0], 'TITLE':row[1]}
+            l.append(d)
+        message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
+    else:
+        auction = {}
+        if len(rows) == 1:
+            row = rows[0]
+            auction['AUCTION_ID'] = row[0]
+            auction['TITLE'] = row[1]
+            auction['DESCRIPTION'] = row[2]
+            auction['TYPE'] = row[3]
+            auction['SUBTYPE'] = row[4]
+            auction['ENDING_TIMESTAMP'] = row[5]
+            auction['WHO_HIDES'] = None
+            auction['BIDS'] = []
+        message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'AUCTION':auction}
     cm = CertManager(priv_key = pk)
     sl = cm.sign(json.dumps(message).encode('UTF-8'))
 
-    message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
     reply = { 'ACTION': 'ENGLISH_REPLY',
             'SIGNATURE': base64.urlsafe_b64encode(sl).decode(),
             'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
@@ -99,24 +111,44 @@ def list_blind(j, sock, addr, pk, pukm, cert, db):
     if 'AUCTION_ID' in j:
         auction_id = j['AUCTION_ID']
     rows = db.list_blind(auction_id)
-    l = []
-    for row in rows:
-        d = {'TITLE':row[1], 'DESCRIPTION':row[2], 'TYPE':row[3], 'SUBTYPE':row[4], 'AUCTION_EXPIRES':row[5], 'BID_LIMIT':row[6]}
-        l.append(d)
 
-    #logger.debug("C = %s", challenge)
-
-    message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
+    if auction_id is None:
+        l = []
+        for row in rows:
+            d = {'AUCTION_ID':row[0], 'TITLE':row[1]}
+            l.append(d)
+        message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
+    else:
+        auction = {}
+        if len(rows) == 1:
+            row = rows[0]
+            auction['AUCTION_ID'] = row[0]
+            auction['TITLE'] = row[1]
+            auction['DESCRIPTION'] = row[2]
+            auction['TYPE'] = row[3]
+            auction['SUBTYPE'] = row[4]
+            auction['ENDING_TIMESTAMP'] = row[7]
+            auction['WHO_HIDES'] = None
+            auction['BIDS'] = []
+        message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'AUCTION':auction}
     cm = CertManager(priv_key = pk)
     sl = cm.sign(json.dumps(message).encode('UTF-8'))
 
-    #message = {'NONCE':base64.urlsafe_b64encode(nonce).decode(), 'LIST':l}
     reply = { 'ACTION': 'BLIND_REPLY',
             'SIGNATURE': base64.urlsafe_b64encode(sl).decode(),
             'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
             'MESSAGE': message}
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+
+    return False
+
+
+def bid_init(j, sock, addr, pk, pukm, cert, db):
+    certificate = base64.urlsafe_b64decode(j['CERTIFICATE'])
+    auction_id = j['AUCTION_ID']
+
+    
 
     return False
 
