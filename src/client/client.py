@@ -215,7 +215,7 @@ def create_new_auction(*arg):
 	# Time for Auction expiration (hours)
 	while True:
 		try:
-			new_auction['AUCTION_EXPIRES'] = int(input("Expiration time for Auction (hours): "))
+			new_auction['AUCTION_EXPIRES'] = int(input("Expiration time for Auction (hours): ")) * 60 * 60
 		except ValueError:
 			print( colorize('Expiration must be a number!', 'red') )
 			clean()
@@ -231,7 +231,7 @@ def create_new_auction(*arg):
 	# Times That Auction Is Extended in case of new bids
 	while True:
 		try:
-			new_auction['BID_LIMIT'] = int(input("Time extended for new bids (minutes): "))
+			new_auction['BID_LIMIT'] = int(input("Time extended for new bids (minutes): ")) * 60
 		except ValueError:
 			print( colorize('Limit must be a number!', 'red') )
 			clean()
