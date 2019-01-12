@@ -158,7 +158,7 @@ class CertManager:
             Returns raw certificate from certs directory
         '''
         try:
-            f = open('src/common/certmanager/certs/' + cert_name, 'r')
+            f = open('src/common/certmanager/certs/' + cert_name, 'rb')
             return f.read()
         except Exception as e:
             logger.error("Unable to read certificate: %s", cert_name)

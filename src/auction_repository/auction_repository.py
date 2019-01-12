@@ -39,7 +39,7 @@ def main(args):
     mActions = {'STORE':storage_auction,
             'ENGLISH':list_english,
             'BLIND':list_blind,
-            'BID_INIT':bid_init
+            'BID_INIT':bid_init,
             'EXIT':exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -148,7 +148,7 @@ def bid_init(j, sock, addr, pk, pukm, cert, db):
     certificate = base64.urlsafe_b64decode(j['CERTIFICATE'])
     auction_id = j['AUCTION_ID']
 
-    
+
 
     return False
 

@@ -429,8 +429,8 @@ def list_auction(arg):
 		# Bulding Menu With Options For The Client
 		menu = []
 		menu.append({"Make Offer" : (make_bid, (auction["AUCTION_ID"], \
-					auction["WHO_HIDES"] == 1, auction["SUBTYPE"] == 2, \
-					auction["TYPE"] == 2))})
+					auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY", \
+					auction["WHO_HIDES"] == "CLIENT"))})
 		menu.append({ "Exit" : None })
 
 		# Print Menu
@@ -450,9 +450,9 @@ def make_bid(arg):
 
 	# Reading arguments
 	auction_id = arg[0]
-	client_hides = arg[1]
+	is_english = arg[1]
 	hidden_identity = arg[2]
-	hidden_value = arg[3]
+	client_hides = arg[3]
 
 	# Scanning user CartaoDeCidadao
 	logging.info("Reading User's Cartao De Cidadao")
@@ -486,25 +486,28 @@ def make_bid(arg):
 
 	# Preparing data
 	print( colorize( "Preparing data, please wait...", 'pink' ) )
-	# If there is any value to be hidden
-	if (hidden_identity or hidden_value):
-		logging.info("Auction Requires to Encrypt Values, Encrypting...")
-		if client_hides:
-			# Generate cipher_key and encrypt values
-			cipher_key = os.urandom(64)
-			if( hidden_identity ): identity = encrypt(cipher_key, str(identity))
-			if( hidden_value ): value = encrypt(cipher_key, str(value))
+	logging.info("Auction Requires to Encrypt Values, Encrypting...")
 
-		else:
-			manager_cert = CertManager.get_cert_by_name('manager.crt')
-			cm = CertManager(manager_cert)
-			if( hidden_identity ): identity = cm.encrypt(str(identity))
-			if( hidden_value ): value = cm.encrypt(str(value))
+	# Hiding needed values
+	cipher_key = os.urandom(16)
+	# If manager is hidding, import his certificate to encrypt cipher_key
+	if (not client_hides):
+		manager_cert = CertManager.get_cert_by_name('manager.crt')
+		cm = CertManager(manager_cert)
+		hidden_cipher_key = cm.encrypt(cipher_key)
 
+	# Need to hide identity?
+	if (hidden_identity):
+		identity = encrypt(cipher_key, identity)
+	# Need to hide value?
+	if (is_english):
+		value = encrypt(cipher_key, bytes([value]))
+
+	for_puzzle = os.urandom(64)
 	# Ask for CryptoPuzzle
 	crypto_puzzle_request = {
-								"ACTION" : "BID_INIT",
-								"CERTIFICATE" : toBase64( identity ),
+								"ACTION" : "CRYPTOPUZZLE",
+								"FOR_PUZZLE" : toBase64(for_puzzle),
 								"AUCTION_ID" : auction_id
 							}
 
@@ -515,8 +518,8 @@ def make_bid(arg):
 	'''
 		SENT MESSAGE:
 		{
-			"ACTION" : "BID_INIT",
-			"CERTIFICATE" : _____, (encrypted, validate with manager)
+			"ACTION" : "CRYPTOPUZZLE",
+			"FOR_PUZZLE" : _____,		# This will be changed, this puzzle no longer makes sense
 			"AUCTION_ID" : ________
 		}
 		EXPECTED ANSWER:
@@ -547,13 +550,14 @@ def make_bid(arg):
 		return
 
 	logging.info("Solving CryptoPuzzle...")
-	solution = CryptoPuzzle.solve_puzzle(message["PUZZLE"], identity, \
+	solution = CryptoPuzzle.solve_puzzle(fromBase64(message["PUZZLE"]), for_puzzle, \
 				message["STARTS_WITH"] , message["ENDS_WITH"])
 
 	bid = 	{
 				"AUCTION" 		: auction_id,
 				"VALUE"			: toBase64(value),
 				"CERTIFICATE"	: toBase64(identity),
+				"PUZZLE"		: toBase64(message["PUZZLE"]),
 				"SOLUTION"		: toBase64(solution),
 			}
 
@@ -565,6 +569,10 @@ def make_bid(arg):
 					"SIGNATURE" : toBase64(signed_bid)
 				}
 
+	# Key encrypted with manager public_key so he can read identity/value
+	if not client_hides:
+		message["MANAGER_SECRET"] = toBase64(hidden_cipher_key)
+
 	# Send Offer
 	logging.info("Sending Bid To Repository")
 	sock_repository.send( json.dumps(message).encode("UTF-8") )
@@ -575,10 +583,11 @@ def make_bid(arg):
 			"MESSAGE" : {
 							"AUCTION" 		: ______,
 							"VALUE"			: ______, (may be encrypted)
-							"CERTIFICATE"	: ______, (encrypted)
+							"CERTIFICATE"	: ______, (may be encrypted)
 							"SOLUTION"		: ______,
 						},
-			"SIGNATURE" : ________
+			"SIGNATURE" : ________,
+			"MANAGER_SECRET" : ______ (Optional, present if manager is going to hide something)
 		}
 		EXPECTED ANSWER:
 		{
@@ -629,6 +638,7 @@ def print_menu(menu, info_to_print = None, timestamp = None):
 			p.start()
 			choice = input(">> ")
 			p.terminate()
+			sys.stdout.write("\033[4B")
 		else:
 			choice = input(">> ")
 
