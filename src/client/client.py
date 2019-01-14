@@ -503,11 +503,10 @@ def make_bid(arg):
 	if (is_english):
 		value = encrypt(cipher_key, bytes([value]))
 
-	for_puzzle = os.urandom(64)
 	# Ask for CryptoPuzzle
 	crypto_puzzle_request = {
 								"ACTION" : "CRYPTOPUZZLE",
-								"FOR_PUZZLE" : toBase64(for_puzzle),
+								"PUBLIC_KEY" : toBase64(identity),
 								"AUCTION_ID" : auction_id
 							}
 
@@ -516,17 +515,22 @@ def make_bid(arg):
 	sock_repository.send( json.dumps(crypto_puzzle_request).encode("UTF-8") )
 	# Waiting for server response
 	'''
+		DESCRIPTION:
+			This message is to request a cryptopuzzle to the repository,
+			not much to add about it, it gives a public_key to be used on the
+			cryptopuzzle generation (function create_puzzle in CryptoPuzzle package)
+
 		SENT MESSAGE:
 		{
 			"ACTION" : "CRYPTOPUZZLE",
-			"FOR_PUZZLE" : _____,		# This will be changed, this puzzle no longer makes sense
+			"PUBLIC_KEY" : _____,
 			"AUCTION_ID" : ________
 		}
 		EXPECTED ANSWER:
 		{
 			"ACTION" : "CRYPTOPUZZLE_REPLY",
 			"MESSAGE" : {
-							"PUZZLE" : ____,
+							"PUZZLE" : ____,			# These are the values that create_puzzle will return
 							"STARTS_WITH" : ____,
 							"ENDS_WITH" : ____,
 						}
@@ -577,6 +581,21 @@ def make_bid(arg):
 	logging.info("Sending Bid To Repository")
 	sock_repository.send( json.dumps(message).encode("UTF-8") )
 	'''
+		DESCRIPTION:
+			Client solved the puzzle so it will now return the solution together
+			with his offer. VALUE and CERTIFICATE may be encrypted depending of the
+			properties of the auction. The key used in this encryption is given in
+			MANAGER_SECRET in case the auction is set as "SERVER/MANAGER hides".
+			Obviously, the key in manager secret is encrypted with manager's public key
+			so that the repository cant know it .
+			What to do after?
+				1 - The repository will check the cryptopuzzle solution
+				2 - In case of valid, send the bid to manager for validation
+				3 - In case "MANAGER_SECRET" is available, use it decrypt "IDENTITY"/"VALUE" and validate bid and signature .
+				4 - If valid, sign "MESSAGE" and "SIGNATURE" and send it to repository
+				5 - Repository now stores the bid and signs on top of manager signature
+				6 - Send the result to the client, as receipt.
+
 		SENT MESSAGE:
 		{
 			"ACTION" : "BID_INIT",
