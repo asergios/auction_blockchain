@@ -23,15 +23,6 @@ Root
 | cc         | **TEXT (PK)**    |
 | auction_id | **INTEGER (PK)** |
 
-#### Tabela para guardar chaves dos utilizadores
-
-|  Columns   |       Types      |
-|------------|------------------|
-| cc         | **TEXT (PK)**    |
-| auction_id | **INTEGER (PK)** |
-| cert       | TEXT             |
-| key        | TEXT             |
-
 ### Auction Repository
 
 #### Tabela para os leilões
@@ -49,6 +40,14 @@ Root
 | expires  | INTEGER          |
 | blimit   | INTEGER          |
 | open     | INTEGER (1)      |
+
+#### Tabela para bids
+
+|  Columns   |       Types      |
+|------------|------------------|
+| auction_id | **INTEGER (PK)** |
+| sequence   | **INTEGER (PK)** |
+| hash       | TEXT             |
 
 ## Pré-requesitos
 Os pré-requisitos podem ser instalados manualmente.

@@ -39,7 +39,7 @@ def main(args):
     mActions = {'STORE':storage_auction,
             'ENGLISH':list_english,
             'BLIND':list_blind,
-            'BID_INIT':bid_init,
+            'CRYPTOPUZZLE':cryptopuzzle,
             'EXIT':exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -144,10 +144,8 @@ def list_blind(j, sock, addr, pk, pukm, cert, db):
     return False
 
 
-def bid_init(j, sock, addr, pk, pukm, cert, db):
-    certificate = base64.urlsafe_b64decode(j['CERTIFICATE'])
+def cryptopuzzle(j, sock, addr, pk, pukm, cert, db):
     auction_id = j['AUCTION_ID']
-
 
 
     return False

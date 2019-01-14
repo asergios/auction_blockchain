@@ -16,12 +16,7 @@ class ADB:
     def store_user_auction(self, user_cc, auction_id):
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO auctions(cc, auction_id) VALUES (?,?)', (user_cc, auction_id))
-        self.db.commit()
-
-    def store_user_key(self, cc, auction_id, cert, key):
-        cursor = self.db.cursor()
-        cursor.execute('INSERT INTO keys(cc, auction_id, cert, key) VALUES (?,?,?,?)', (cc, auction_id, cert, key))
-        self.db.commit()
+        self.db.commit() 
 
     def close(self):
         self.db.commit()

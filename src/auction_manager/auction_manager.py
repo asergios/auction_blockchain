@@ -38,7 +38,6 @@ def main(args):
     mActions = {'CREATE':validate_auction,
                 'CHALLENGE': challenge_response,
                 'STORE_REPLY': store_reply,
-                'KEY_SET_INIT': key_set_init,
                 'EXIT': exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -190,59 +189,6 @@ def store_reply(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), user_addr)
     return False
-
-
-def key_set_init(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
-    challenge = base64.urlsafe_b64decode(j['CHALLENGE'])
-    certificate = base64.urlsafe_b64decode(j['CERTIFICATE'])
-
-    cm = CertManager(priv_key = pk)
-    cr = cm.sign(challenge)
-
-    nonce = oc.add(certificate)
-
-    reply = { 'ACTION': 'KEY_ANSWER',
-            'CHALLENGE_RESPONSE': base64.urlsafe_b64encode(cr).decode(),
-            'CERTIFICATE': base64.urlsafe_b64encode(cert).decode(),
-            'NONCE': base64.urlsafe_b64encode(nonce).decode() }
-    logger.debug('CLIENT REPLY = %s', reply)
-    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-    return False
-
-
-def key_set(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
-    reply = {'ACTION':'KEY_ACK'}
-    s = base64.urlsafe_b64decode(j['SIGNATURE'])
-    message = json.loads(j['MESSAGE'])
-    nonce = base64.urlsafe_b64decode(message['NONCE'])
-    user_cert = oc.pop(nonce)
-
-    cm = CertManager( cert = user_cert, priv_key = pk )
-    if not cm.verify_certificate():
-        reply['STATE'] = 'NOT OK'
-        reply['ERROR'] = 'INVALID CERTIFICATE'
-        logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-        return
-    
-    if not cm.verify_signature(s, j['MESSAGE'].encode('UTF-8')):
-        reply['STATE'] = 'NOT OK'
-        reply['ERROR'] = 'INVALID SIGNATURE'
-        logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-        return
-
-    auction_id = message['AUCTION']
-    user_key = cm.decrypt(base64.urlsafe_b64decode(message['KEY']), pk)
-    user_cc = cm.get_identity()[1]
-    db.store_user_key(user_cc, auction_id, user_cert, user_key)
-
-    reply['STATE'] = 'OK' 
-    logger.debug('CLIENT REPLY = %s', reply)
-    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-
-    return False
-
 
 def exit(j, sock, addr, oc, pk, pukr, cert, addr_rep, db):
     logger.debug("EXIT")
