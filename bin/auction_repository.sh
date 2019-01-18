@@ -11,7 +11,7 @@ if [ ! -f $DB ]; then
   sqlite3 $DB <<EOF
 CREATE TABLE auctions (id INTEGER PRIMARY KEY, title TEXT, desc TEXT, type INTEGER,
 subtype INTEGER, duration INTEGER, start DATETIME, stop DATETIME, blimit INTEGER, open INTEGER DEFAULT 1);
-CREATE TABLE bids (auction_id INTEGER, sequence INTEGER, hash TEXT, PRIMARY KEY (auction_id, sequence))
+CREATE TABLE bids (auction_id INTEGER, sequence INTEGER, certificate TEXT, value TEXT, PRIMARY KEY (auction_id, sequence))
 EOF
 fi
 

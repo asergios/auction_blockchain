@@ -587,18 +587,18 @@ def make_bid(arg):
 			properties of the auction. The key used in this encryption is given in
 			MANAGER_SECRET in case the auction is set as "SERVER/MANAGER hides".
 			Obviously, the key in manager secret is encrypted with manager's public key
-			so that the repository cant know it .
+			so that the repository cant know it.
 			What to do after?
 				1 - The repository will check the cryptopuzzle solution
 				2 - In case of valid, send the bid to manager for validation
-				3 - In case "MANAGER_SECRET" is available, use it decrypt "IDENTITY"/"VALUE" and validate bid and signature .
+				3 - In case "MANAGER_SECRET" is available, use it decrypt "IDENTITY"/"VALUE" and validate bid and signature.
 				4 - If valid, sign "MESSAGE" and "SIGNATURE" and send it to repository
 				5 - Repository now stores the bid and signs on top of manager signature
 				6 - Send the result to the client, as receipt.
 
 		SENT MESSAGE:
 		{
-			"ACTION" : "BID_INIT",
+			"ACTION" : "OFFER",
 			"MESSAGE" : {
 							"AUCTION" 		: ______,
 							"VALUE"			: ______, (may be encrypted)

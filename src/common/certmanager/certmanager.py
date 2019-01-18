@@ -7,6 +7,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256, SHA
 from Crypto.Signature import PKCS1_v1_5
 from Crypto.Cipher import PKCS1_OAEP
+from ..utils import load_file_raw
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger('CM')
@@ -157,9 +158,7 @@ class CertManager:
         '''
             Returns raw certificate from certs directory
         '''
-        try:
-            f = open('src/common/certmanager/certs/' + cert_name, 'rb')
-            return f.read()
-        except Exception as e:
+        content = load_file_raw('src/common/certmanager/certs/' + cert_name)
+        if content is None:
             logger.error("Unable to read certificate: %s", cert_name)
-            return None
+        return content

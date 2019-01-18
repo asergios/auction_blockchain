@@ -43,11 +43,12 @@ Root
 
 #### Tabela para bids
 
-|  Columns   |       Types      |
-|------------|------------------|
-| auction_id | **INTEGER (PK)** |
-| sequence   | **INTEGER (PK)** |
-| hash       | TEXT             |
+|   Columns   |       Types      |
+|-------------|------------------|
+| auction_id  | **INTEGER (PK)** |
+| sequence    | **INTEGER (PK)** |
+| certificate | TEXT             |
+| value       | TEXT             |
 
 ## Pré-requesitos
 Os pré-requisitos podem ser instalados manualmente.
