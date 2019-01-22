@@ -49,9 +49,11 @@ def clean(clean = False, lines = 2):
     '''
     if clean:
         sys.stdout.write("\033[K")
+        sys.stdout.flush()
         return
     sys.stdout.write("\033[" + str(lines) + "F")
     sys.stdout.write("\033[K")
+    sys.stdout.flush()
 
 
 def colorize(string, color):

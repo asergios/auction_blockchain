@@ -10,6 +10,7 @@ import getpass
 from multiprocessing import Process
 from ..common.utils import *
 from ..common.cartaodecidadao import CartaoDeCidadao
+from ..common.dynamiccode import DynamicCode
 from ..common.receiptmanager import ReceiptManager
 from ..common.certmanager import CertManager
 from ..common.cryptopuzzle import CryptoPuzzle
@@ -66,6 +67,9 @@ def wait_for_answer(sock, action):
 					return answer
 				else:
 					logging.error("Server sent an Invalid JSON!: " + data)
+		except socket.timeout:
+			input("Answer from server timed out. Press any key to continue...")
+			return False
 		except:
 			logging.error("Failed to connect to server or server sent an invalid JSON!")
 			return False
@@ -253,6 +257,8 @@ def create_new_auction(*arg):
 	choice = input("[y/N/manual] => ")
 	choice = choice.upper()
 
+	clean(lines=2)
+
 	if(choice.startswith("Y")):
 		plat = platform.system()
 		try:
@@ -268,10 +274,19 @@ def create_new_auction(*arg):
 			print( colorize("ERROR: Unable to open code upload file.", 'red') )
 			quit()
 
-		print("File for dynamic code will open sortly... please wait.")
-		input("Press any key when code is ready to upload...")
-		with open('src/client/code.txt', 'r') as f:
-		    new_auction["CODE"] = [line.rstrip('\n') for line in f if not line.startswith("#")]
+		print(colorize("File for dynamic code will open sortly... please wait.", 'pink' ))
+		while True:
+			input("Press any key when code is ready to upload...")
+			clean(lines=1)
+			clean(lines=1)
+			with open('src/client/code.txt', 'r') as f:
+				code_check = DynamicCode.check_code(f.read())
+				if code_check[0]:
+					f.seek(0)
+					new_auction["CODE"] = [line.rstrip('\n') for line in f if not line.startswith("#")]
+					break
+				else:
+					print(colorize("DynamicCode not valid, try again: " + str(code_check[1]), 'red'))
 
 	elif(choice.startswith("M")):
 		# TODO: print guide
