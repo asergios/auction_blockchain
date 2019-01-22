@@ -19,6 +19,9 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(leve
 logger = logging.getLogger('AR')
 logger.setLevel(logging.DEBUG)
 
+# Needs to be global so it can store the puzzles sent
+cp =  CryptoPuzzle()
+
 
 def signal_handler(addr, signal, frame):
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -32,7 +35,6 @@ def main(args):
     #pk = load_file_raw('src/auction_repository/keys/private_key.pem')
     #pukm = load_file_raw('src/auction_repository/keys/public_key_manager.pem')
     #cert = load_file_raw("src/common/certmanager/certs/repository.crt")
-    cryptpuzzle = CryptoPuzzle()
     db = RDB()
     oc = OpenConnections()
 
@@ -52,7 +54,8 @@ def main(args):
     logger.info('Auction Repository running...')
     done = False
     while not done:
-        data, addr = sock.recvfrom(4096)
+        data, addr = sock.recvfrom(8192)
+        print(data)
         j = json.loads(data)
         logger.debug('JSON = %s', j)
         done = mActions[j['ACTION']](j, sock, addr, oc, cryptopuzzle, addr_man, db)
@@ -65,7 +68,7 @@ def store(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     auction_id = db.store_auction(data['TITLE'], data['DESCRIPTION'], data['TYPE'], data['SUBTYPE'], data['AUCTION_EXPIRES'], data['BID_LIMIT'])
     nonce = data['NONCE']
     data = {'NONCE':nonce, 'AUCTION_ID':auction_id}
-    
+
     cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
     reply = {'ACTION':'STORE_REPLY', 'DATA': toBase64(cm.encrypt(json.dumps(data).encode('UTF-8')))}
     logger.debug('MANAGER REPLY = %s', reply)
@@ -99,8 +102,12 @@ def list_english(j, sock, addr, oc, cryptopuzzle, addr_man, db):
             auction['WHO_HIDES'] = None
             auction['BIDS'] = []
         message = {'NONCE':toBase64(nonce), 'AUCTION':auction}
-    
-    cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
+
+    # TODO: You need the private key for signing
+    pk = load_file_raw('src/auction_repository/keys/private_key.pem')
+    cert = CertManager.get_cert_by_name('repository.crt')
+
+    cm = CertManager(cert = cert, priv_key = pk)
     sl = cm.sign(json.dumps(message).encode('UTF-8'))
 
     reply = { 'ACTION': 'ENGLISH_REPLY',
@@ -156,16 +163,20 @@ def list_blind(j, sock, addr, oc, cryptopuzzle, addr_man, db):
 def cryptopuzzle(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     auction_id = j['AUCTION_ID']
     public_key = fromBase64(j['PUBLIC_KEY'])
-    (puzzle, starts, ends) = cryptopuzzle.create_puzzle(public_key)
+    (puzzle, starts, ends) = cp.create_puzzle(public_key)
     nonce = oc.add(public_key)
-    message = {'PUZZLE':puzzle,
-            'STARTS_WITH':starts,
-            'ENDS_WITH':ends,
-            'NONCE':toBase64(nonce)}
+    message = { 'PUZZLE':puzzle,
+                'STARTS_WITH': toBase64(starts),
+                'ENDS_WITH':toBase64(ends),
+                'NONCE':toBase64(nonce)}
 
-    cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-    
-    signature = cm.sign(message.encode('UTF-8'))
+    # TODO: You need the private key for signing
+    pk = load_file_raw('src/auction_repository/keys/private_key.pem')
+    cert = CertManager.get_cert_by_name('repository.crt')
+
+    cm = CertManager(cert = cert, priv_key = pk)
+
+    signature = cm.sign(json.dumps(message).encode('UTF-8'))
     reply = { 'ACTION': 'CRYPTOPUZZLE_REPLY',
             'MESSAGE': message,
             'SIGNATURE': toBase64(signature),
@@ -177,16 +188,16 @@ def cryptopuzzle(j, sock, addr, oc, cryptopuzzle, addr_man, db):
 
 def offer(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     message = j['MESSAGE']
-    puzzle = fromBase64(message['PUZZLE'])
-    nonce = fromBase64(message['NONCE'])
+    #O puzzle ja funciona como um nonce
+    #nonce = fromBase64(message['NONCE'])
     solution = fromBase64(message['SOLUTION'])
-    pub_key = oc.pop(nonce)
-    if cryptopuzzle.validate_solution(pub_key, solution):
+    if cp.validate_solution(fromBase64(message['CERTIFICATE']), solution):
         nonce = toBase64(oc.add(addr))
         cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
         data = {'MESSAGE':message, 'SIGNATURE': j['SIGNATURE'], 'NONCE':nonce}
         if 'MANAGER_SECRET' in j:
             data['MANAGER_SECRET'] = j['MANAGER_SECRET']
+        # TODO: a message é demasiado longa para ser cifrada com uma chave assimetrica / da erro
         request = {'ACTION':'VALIDATE_BID', 'DATA':toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
         logger.debug('MANAGER REQUEST = %s', request)
         sock.sendto(json.dumps(request).encode('UTF-8'), addr_man)
@@ -220,7 +231,7 @@ def validate_bid(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     sequence = db.store_bids(auction_id, certificate, value)
 
     cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-    
+
     onion2 = {'ONION_1': onion1, 'SIGNATURE': data['SIGNATURE'], 'SEQUENCE': sequence}
     signature_repository = cm.sign(onion2.encode('UTF-8'))
     reply = {'ACTION': 'RECEIPT', 'ONION_2': onion2, 'SIGNATURE': toBase64(signature_repository)}

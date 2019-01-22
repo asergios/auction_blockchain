@@ -23,6 +23,11 @@ def fromBase64(base64string):
     '''
     return base64.urlsafe_b64decode(base64string)
 
+def actual_timestamp():
+    '''
+    Returns actual timestamp
+    '''
+    return time.time()
 
 def print_timer(timestamp, lines):
     '''

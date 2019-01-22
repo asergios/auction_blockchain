@@ -42,11 +42,11 @@ class CryptoPuzzle:
             There are 2 bytes left between starts_with and ends_with that the
                 user needs to find out using brute force
         '''
-        solution = os.urandom( len(public_key) )
-        plain = self.string_xor(public_key, solution)
+        solution = os.urandom( int(len(public_key) / 4) )
+        plain = self.string_xor(public_key[:int(len(public_key) / 4)], solution)
         puzzle = SHA256.new(data=plain).hexdigest()
 
-        starts_with_index = randint(0, int( len(public_key) * random.uniform(0, 1) ) )
+        starts_with_index = randint(0, int( len(public_key) / 4 * random.uniform(0, 1) ) )
         ends_with_index = starts_with_index + 2
 
         starts_with = solution[:starts_with_index]
@@ -67,7 +67,7 @@ class CryptoPuzzle:
             Try to solve puzzle (user side)
         '''
         attempt = self.build_attempt(starts_with, ends_with)
-        while (puzzle != SHA256.new( data= self.string_xor(public_key, attempt) ).hexdigest()):
+        while (puzzle != SHA256.new( data= self.string_xor(public_key[:int(len(public_key) / 4)], attempt) ).hexdigest()):
             attempt = self.build_attempt(starts_with, ends_with)
         return attempt
 

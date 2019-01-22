@@ -55,10 +55,12 @@ def wait_for_answer(sock, action):
 	'''
 		Waits for a response from server
 	'''
+	sock.settimeout(3)
 	while True:
 		try:
 			data, addr = sock.recvfrom(4096)
 			if data:
+				logging.error(data)
 				answer = json.loads(data.decode('UTF-8'))
 				if(answer["ACTION"] == action):
 					return answer
@@ -66,6 +68,7 @@ def wait_for_answer(sock, action):
 					logging.error("Server sent an Invalid JSON!: " + data)
 		except:
 			logging.error("Failed to connect to server or server sent an invalid JSON!")
+			return False
 
 	print( colorize("Unable to connect with server, please try again later.", 'red') )
 	input("Press any key to continue...")
@@ -215,7 +218,7 @@ def create_new_auction(*arg):
 	# Time for Auction expiration (hours)
 	while True:
 		try:
-			new_auction['AUCTION_EXPIRES'] = int(input("Expiration time for Auction (hours): ")) * 60 * 60
+			new_auction['AUCTION_EXPIRES'] = actual_timestamp() + int(input("Expiration time for Auction (hours): ")) * 60 * 60
 		except ValueError:
 			print( colorize('Expiration must be a number!', 'red') )
 			clean()
@@ -231,7 +234,7 @@ def create_new_auction(*arg):
 	# Times That Auction Is Extended in case of new bids
 	while True:
 		try:
-			new_auction['BID_LIMIT'] = int(input("Time extended for new bids (minutes): ")) * 60
+			new_auction['BID_LIMIT'] = actual_timestamp() + int(input("Time extended for new bids (minutes): ")) * 60
 		except ValueError:
 			print( colorize('Limit must be a number!', 'red') )
 			clean()
@@ -546,27 +549,25 @@ def make_bid(arg):
 	message = server_answer['MESSAGE']
 	logging.info("Verifying certificate and server signature of message")
 
-	if fromBase64(message["NONCE"]) != nonce or \
-			not verify_server( server_answer['CERTIFICATE'], message, server_answer['SIGNATURE'] ):
+	if not verify_server( server_answer['CERTIFICATE'], json.dumps(message).encode('UTF-8'), server_answer['SIGNATURE'] ):
 		logging.warning("Server Verification Failed")
 		print( colorize('Server Validation Failed!', 'red') )
 		input("Press any key to continue...")
 		return
 
 	logging.info("Solving CryptoPuzzle...")
-	solution = CryptoPuzzle.solve_puzzle(fromBase64(message["PUZZLE"]), for_puzzle, \
-				message["STARTS_WITH"] , message["ENDS_WITH"])
+	solution = CryptoPuzzle().solve_puzzle(message["PUZZLE"], identity, \
+				fromBase64(message["STARTS_WITH"]) , fromBase64(message["ENDS_WITH"]))
 
 	bid = 	{
 				"AUCTION" 		: auction_id,
 				"VALUE"			: toBase64(value),
 				"CERTIFICATE"	: toBase64(identity),
-				"PUZZLE"		: toBase64(message["PUZZLE"]),
 				"SOLUTION"		: toBase64(solution),
 			}
 
 	logging.info("Signing Bid...")
-	signed_bid = cc.sign( bid.encode('UTF-8') )
+	signed_bid = cc.sign( json.dumps(bid).encode('UTF-8') )
 	message = 	{
 					"ACTION" : "OFFER",
 					"MESSAGE" : bid,

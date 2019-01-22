@@ -55,7 +55,11 @@ def challenge(j, sock, addr, oc, addr_rep, db):
     challenge = fromBase64(j['CHALLENGE'])
     certificate = fromBase64(j['CERTIFICATE'])
 
-    cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
+    # TODO: You need the private key for signing
+    pk = load_file_raw('src/auction_repository/keys/private_key.pem')
+    cert = CertManager.get_cert_by_name('repository.crt')
+    ###
+    cm = CertManager(cert = cert, priv_key=pk)
     cr = cm.sign(challenge)
 
     nonce = oc.add(certificate)
@@ -170,6 +174,7 @@ def validate_auction(j, sock, addr, oc, addr_rep, db):
     message['ACTION'] = 'STORE'
     message['NONCE'] = toBase64(nonce)
     cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
+    # TODO: PLAINTEXT IS TO LONG. Nao podes usar chave assimetrica
     request = {'ACTION':'STORE', 'DATA': toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
     logger.debug("REPOSITORY STORE = %s", request)
     sock.sendto(json.dumps(request).encode('UTF-8'), addr_rep)
@@ -205,7 +210,7 @@ def validate_bid(j, sock, addr, oc, addr_rep, db):
         secret = data['MANAGER_SECRET']
         certificate = decrypt(certificate)
         value = decrypt(value)
-    
+
     cm = CertManager(cert = certificate)
 
     if not cm.verify_certificate():
