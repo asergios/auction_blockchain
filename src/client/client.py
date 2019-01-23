@@ -254,7 +254,7 @@ def create_new_auction(*arg):
 
 	# Dynamic Code For Bid Validation
 	print("Do you wish to upload code for bid validation?")
-	choice = input("[y/N/manual] => ")
+	choice = input("[y/N] => ")
 	choice = choice.upper()
 
 	clean(lines=2)
@@ -279,18 +279,16 @@ def create_new_auction(*arg):
 			input("Press any key when code is ready to upload...")
 			clean(lines=1)
 			clean(lines=1)
+			# Reading code, removing comments and validate it
 			with open('src/client/code.txt', 'r') as f:
-				code_check = DynamicCode.check_code(f.read())
+				code = [line for line in f if not line.startswith("#")]
+				code = ''.join(str(elem) for elem in code)
+				code_check = DynamicCode.check_code(code)
 				if code_check[0]:
-					f.seek(0)
-					new_auction["CODE"] = [line.rstrip('\n') for line in f if not line.startswith("#")]
+					new_auction["CODE"] = code
 					break
 				else:
 					print(colorize("DynamicCode not valid, try again: " + str(code_check[1]), 'red'))
-
-	elif(choice.startswith("M")):
-		# TODO: print guide
-		pass
 
 	# Building INNER JSON
 	new_auction["ACTION"] = "CREATE"
