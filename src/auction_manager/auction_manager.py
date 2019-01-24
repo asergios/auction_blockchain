@@ -56,7 +56,7 @@ def challenge(j, sock, addr, oc, addr_rep, db):
     certificate = fromBase64(j['CERTIFICATE'])
 
     # TODO: You need the private key for signing
-    pk = load_file_raw('src/auction_repository/keys/private_key.pem')
+    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
     cert = CertManager.get_cert_by_name('repository.crt')
     ###
     cm = CertManager(cert = cert, priv_key=pk)
@@ -196,8 +196,12 @@ def store(j, sock, addr, oc, addr_rep, db):
 
 
 def validate_bid(j, sock, addr, oc, addr_rep, db):
-    cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
-    data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
+    # TODO: You need the private key for decrypting the MANAGER_SECRET
+    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
+    cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'), priv_key=pk)
+    #data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
+    ### TEMPORARY FIX
+    data = j['DATA']
     logger.debug('DATA = %s', data)
     nonce = data['NONCE']
     message = data['MESSAGE']
@@ -206,10 +210,11 @@ def validate_bid(j, sock, addr, oc, addr_rep, db):
     certificate = fromBase64(message['CERTIFICATE'])
     value = fromBase64(message['VALUE'])
 
+    # In case of being MANAGER HIDES, get the key and values of the BID
     if 'MANAGER_SECRET' in data:
-        secret = data['MANAGER_SECRET']
-        certificate = decrypt(certificate)
-        value = decrypt(value)
+        secret = cm.decrypt(fromBase64(data['MANAGER_SECRET']))
+        certificate = decrypt(secret, certificate)
+        value = decrypt(secret, value)
 
     cm = CertManager(cert = certificate)
 
@@ -223,7 +228,7 @@ def validate_bid(j, sock, addr, oc, addr_rep, db):
         return False
 
 
-    if not cm.verify_signature(signature, message.encode('UTF-8')):
+    if not cm.verify_signature(fromBase64(signature), json.dumps(message).encode('UTF-8')):
         data = {'STATE': 'NOT OK', 'ERROR': 'INVALID SIGNATURE', 'NONCE': nonce}
         cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
         reply = {'ACTION': 'VALIDATE_BID_REPLY',
@@ -232,14 +237,21 @@ def validate_bid(j, sock, addr, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
-    if 'MANAGER_SECRET' in data:
-        message['CERTIFICATE'] = toBase64(cm.encrypt(certificate))
-        message['VALUE'] = toBase64(cm.encrypt(value))
+    # TODO: You need the private key for signing
+    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
+    cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'), priv_key = pk)
+    # @Catarina Nao podes alterar os valores dados pelo client, senao a assinatura ja nao sera valida
+    # MAS PRECISAS DE GUARDAR O MANAGER_SECRET 
+    #if 'MANAGER_SECRET' in data:
+        # @Catarina Nao podes alterar os valores dados pelo client, senao a assinatura ja nao sera valida
+        #message['CERTIFICATE'] = toBase64(cm.encrypt(certificate))
+        #message['VALUE'] = toBase64(cm.encrypt(value))
     onion = {'ONION_0': message, 'SIGNATURE': signature}
-    data = {'ONION_1': onion, 'SIGNATURE': toBase64(cm.sign(onion.encode('UTF-8'))),'NONCE': nonce, 'STATE': 'OK'}
+    data = {'ONION_1': onion, 'SIGNATURE': toBase64(cm.sign(json.dumps(onion).encode('UTF-8'))),'NONCE': nonce, 'STATE': 'OK'}
     cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-    reply = {'ACTION': 'VALIDATE_BID_REPLY', 'DATA': toBase64(cm.encrypt(json.dumps(data).encode('UTF-8')))}
+    #reply = {'ACTION': 'VALIDATE_BID_REPLY', 'DATA': toBase64(cm.encrypt(json.dumps(data).encode('UTF-8')))}
+    ### TEMPORARY FIX
+    reply = {'ACTION': 'VALIDATE_BID_REPLY', 'DATA': toBase64(json.dumps(data).encode('UTF-8'))}
     logger.debug('REPOSITORY REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
     return False

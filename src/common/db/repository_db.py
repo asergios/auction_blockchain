@@ -52,10 +52,10 @@ class RDB:
             ls = rows[0][0]
 
         return ls
-    
+
     def store_bid(self, auction_id, certificate, value):
-        sequence = last_sequence(auction_id) + 1
-        
+        sequence = self.last_sequence(auction_id) + 1
+
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO bids(auction_id, sequence, certificate, value) VALUES(?,?,?,?)',(auction_id, sequence, certificate, value))
         self.db.commit()

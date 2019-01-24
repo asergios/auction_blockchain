@@ -198,7 +198,9 @@ def offer(j, sock, addr, oc, cryptopuzzle, addr_man, db):
         if 'MANAGER_SECRET' in j:
             data['MANAGER_SECRET'] = j['MANAGER_SECRET']
         # TODO: a message é demasiado longa para ser cifrada com uma chave assimetrica / da erro
-        request = {'ACTION':'VALIDATE_BID', 'DATA':toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
+        #request = {'ACTION':'VALIDATE_BID', 'DATA':toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
+        #### TEMPORARY FIX
+        request = {'ACTION':'VALIDATE_BID', 'DATA': data }
         logger.debug('MANAGER REQUEST = %s', request)
         sock.sendto(json.dumps(request).encode('UTF-8'), addr_man)
     else:
@@ -210,7 +212,9 @@ def offer(j, sock, addr, oc, cryptopuzzle, addr_man, db):
 
 def validate_bid(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
-    data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
+    #data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
+    #### TEMPORARY FIX
+    data = json.loads(fromBase64(j['DATA']))
     logger.debug('DATA = %s', data)
     nonce = fromBase64(data['NONCE'])
     addr_client = oc.pop(nonce)
@@ -228,12 +232,14 @@ def validate_bid(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     value = onion0['VALUE']
     auction_id = onion0['AUCTION']
 
-    sequence = db.store_bids(auction_id, certificate, value)
+    sequence = db.store_bid(auction_id, certificate, value)
 
-    cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
+    # TODO: You need the private key for signing
+    pk = load_file_raw('src/auction_repository/keys/private_key.pem')
+    cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'), priv_key = pk)
 
     onion2 = {'ONION_1': onion1, 'SIGNATURE': data['SIGNATURE'], 'SEQUENCE': sequence}
-    signature_repository = cm.sign(onion2.encode('UTF-8'))
+    signature_repository = cm.sign(json.dumps(onion2).encode('UTF-8'))
     reply = {'ACTION': 'RECEIPT', 'ONION_2': onion2, 'SIGNATURE': toBase64(signature_repository)}
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr_client)
