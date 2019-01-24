@@ -68,6 +68,7 @@ def wait_for_answer(sock, action):
 				else:
 					logging.error("Server sent an Invalid JSON!: " + data)
 		except socket.timeout:
+			logging.error("Answer from server timedout (must likely an error occurred).")
 			input("Answer from server timed out. Press any key to continue...")
 			return False
 		except:
@@ -447,6 +448,7 @@ def list_auction(arg):
 		menu.append({"Make Offer" : (make_bid, (auction["AUCTION_ID"], \
 					auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY", \
 					auction["WHO_HIDES"] == "CLIENT"))})
+		menu.append({"Terminate Auction (you must be the owner)" : (terminate_auction, auction_id) })
 		menu.append({ "Exit" : None })
 
 		# Print Menu
@@ -638,10 +640,91 @@ def make_bid(arg):
 
 	pass
 
-def my_auctions():
-	pass
+def terminate_auction(auction_id):
+	'''
+		Terminate an open auction
+	'''
+	# Are you sure?
+	answer = input("Are you sure you want to terminate this auction? [y/N]: ")
+	if(not answer.upper().startswith("Y")):
+		return
+	clean(lines = 1)
+
+	# Scanning user CartaoDeCidadao
+	logging.info("Reading User's Cartao De Cidadao")
+	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
+	cc.scan()
+	clean(lines = 1)
+
+	# Establish connection with server
+	print( colorize( "Establishing connection with server, please wait...", 'pink' ) )
+	logging.info("Trying to establishing connection with server")
+
+	# Sending challenge to the server
+	challenge = os.urandom(64)
+	connection = {"ACTION": "CHALLENGE", "CHALLENGE":  toBase64(challenge)  ,\
+	 			  "CERTIFICATE": toBase64(cc.get_certificate_raw()) }
+	sock_manager.send( json.dumps(connection).encode("UTF-8") )
+	logging.info("Sent Challenge To Server: " + json.dumps(connection))
+
+	# Wait for Challenge Response
+	server_answer = wait_for_answer(sock_manager , "CHALLENGE_REPLY")
+	if not server_answer: return
+	logging.info("Received Challenge Response: " + json.dumps(server_answer))
+
+	# Verify server certificate, verify signature of challenge and decode NONCE
+	logging.info("Verifying certificate and server signature of challenge")
+	if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['CHALLENGE_RESPONSE'] ):
+		logging.warning("Server Verification Failed")
+		print( colorize('Server Validation Failed!', 'red') )
+		input("Press any key to continue...")
+		return
+
+	terminate_inner = 	{
+					"AUCTION_ID": auction_id,
+					"NONCE": server_answer["NONCE"]
+						}
+
+	# Signing and creating OUTTER layer of JSON message
+	logging.info("Signing Message To Send Server")
+	signed_message = cc.sign( json.dumps(terminate_inner).encode('UTF-8') )
+
+	terminate_outter = 	{
+					"ACTION" : "TERMINATE",
+					"MESSAGE": terminate_inner,
+					"SIGNATURE": toBase64(signed_message)
+						}
+
+	# Sending Terminate Auction Request For Auction Manager
+	logging.info("Sending Request To Server:" + json.dumps(terminate_outter))
+	sock_manager.send( json.dumps(terminate_outter).encode("UTF-8") )
+
+	clean(lines = 1)
+	# Wait for Server Response
+	logging.info("Waiting for server response")
+	print( colorize( "Terminating Auction, please wait...", 'pink' ) )
+	server_answer = wait_for_answer(sock_manager, "TERMINATE_REPLY")
+	if not server_answer: return
+	logging.info("Received Server Response: " + json.dumps(server_answer))
+
+	if (server_answer["STATE"] == "OK"):
+		clean(lines=1)
+		logging.info("Auction Termination Was Successful")
+		print( colorize("Auction successfully terminated!", 'pink') )
+		input("Press any key to continue...")
+	elif (server_answer["STATE"] == "NOT OK"):
+		clean(lines=1)
+		logging.info("Auction Termination Failed : " + server_answer["ERROR"] )
+		print( colorize("ERROR: " + server_answer["ERROR"], 'red') )
+		input("Press any key to continue...")
+	else:
+		clean(lines=1)
+		logging.info("Auction Termination Failed With Unexpected Error ")
+		print( colorize("Something really weird happen, please fill a bug report.", 'red') )
+		input("Press any key to continue...")
 
 def my_bids():
+	#TODO
 	pass
 
 
@@ -667,7 +750,7 @@ def print_menu(menu, info_to_print = None, timestamp = None):
 
 		# Print Count Down For Auction
 		if info_to_print:
-			p = Process(target=print_timer, args=(timestamp,4))
+			p = Process(target=print_timer, args=(timestamp,5))
 			p.start()
 			choice = input(">> ")
 			p.terminate()
@@ -687,7 +770,6 @@ menu = [
     { "Create new auction": (create_new_auction, None) },
     { "List Open Auctions [English Auction]": (list_auction, ("ENGLISH", ) ) },
     { "List Open Auctions [Blind Auction]": (list_auction, ("BLIND", ) ) },
-	{ "Owned Auctions": (my_auctions, None)},
 	{ "Participated Auctions": (my_bids, None)},
 	{ "Exit" : None }
 ]
