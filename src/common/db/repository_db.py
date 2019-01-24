@@ -17,7 +17,7 @@ class RDB:
 
     def store_auction(self, title, desc, atype, subtype, duration, limit):
         start = datetime.now()
-        stop = start + timedelta(hours=duration) if duration > 0 else 0
+        stop = (start + timedelta(hours=duration)).timestamp() if duration > 0 else 0
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO auctions(title, desc, type, subtype, duration, start, stop, blimit) VALUES(?,?,?,?,?,?,?,?)',
                 (title, desc, atype, subtype, duration, start, stop, limit))

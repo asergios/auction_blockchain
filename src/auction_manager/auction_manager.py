@@ -57,7 +57,7 @@ def challenge(j, sock, addr, oc, addr_rep, db):
 
     # TODO: You need the private key for signing
     pk = load_file_raw('src/auction_manager/keys/private_key.pem')
-    cert = CertManager.get_cert_by_name('repository.crt')
+    cert = CertManager.get_cert_by_name('manager.crt')
     ###
     cm = CertManager(cert = cert, priv_key=pk)
     cr = cm.sign(challenge)
@@ -174,8 +174,10 @@ def validate_auction(j, sock, addr, oc, addr_rep, db):
     message['ACTION'] = 'STORE'
     message['NONCE'] = toBase64(nonce)
     cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-    # TODO: PLAINTEXT IS TO LONG. Nao podes usar chave assimetrica
-    request = {'ACTION':'STORE', 'DATA': toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
+    # TODO: PLAINTEXT IS TOO LONG. Nao podes usar chave assimetrica
+    #request = {'ACTION':'STORE', 'DATA': toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
+    # TEMPORARY FIX
+    request = {'ACTION':'STORE', 'DATA': toBase64(json.dumps(message).encode('UTF-8'))}
     logger.debug("REPOSITORY STORE = %s", request)
     sock.sendto(json.dumps(request).encode('UTF-8'), addr_rep)
     return False
@@ -183,7 +185,9 @@ def validate_auction(j, sock, addr, oc, addr_rep, db):
 
 def store(j, sock, addr, oc, addr_rep, db):
     cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
-    data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
+    #data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
+    ## TEMPORARY FIX
+    data = json.loads(fromBase64(j['DATA']))
     logger.debug('DATA = %s', data)
     nonce = fromBase64(data['NONCE'])
     auction_id = data['AUCTION_ID']
@@ -241,7 +245,7 @@ def validate_bid(j, sock, addr, oc, addr_rep, db):
     pk = load_file_raw('src/auction_manager/keys/private_key.pem')
     cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'), priv_key = pk)
     # @Catarina Nao podes alterar os valores dados pelo client, senao a assinatura ja nao sera valida
-    # MAS PRECISAS DE GUARDAR O MANAGER_SECRET 
+    # MAS PRECISAS DE GUARDAR O MANAGER_SECRET
     #if 'MANAGER_SECRET' in data:
         # @Catarina Nao podes alterar os valores dados pelo client, senao a assinatura ja nao sera valida
         #message['CERTIFICATE'] = toBase64(cm.encrypt(certificate))

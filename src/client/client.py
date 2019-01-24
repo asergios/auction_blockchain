@@ -59,7 +59,7 @@ def wait_for_answer(sock, action):
 	sock.settimeout(3)
 	while True:
 		try:
-			data, addr = sock.recvfrom(4096)
+			data, addr = sock.recvfrom(8192)
 			if data:
 				logging.error(data)
 				answer = json.loads(data.decode('UTF-8'))
@@ -223,7 +223,7 @@ def create_new_auction(*arg):
 	# Time for Auction expiration (hours)
 	while True:
 		try:
-			new_auction['AUCTION_EXPIRES'] = actual_timestamp() + int(input("Expiration time for Auction (hours): ")) * 60 * 60
+			new_auction['AUCTION_EXPIRES'] = int(input("Expiration time for Auction (hours): "))
 		except ValueError:
 			print( colorize('Expiration must be a number!', 'red') )
 			clean()
@@ -239,7 +239,7 @@ def create_new_auction(*arg):
 	# Times That Auction Is Extended in case of new bids
 	while True:
 		try:
-			new_auction['BID_LIMIT'] = actual_timestamp() + int(input("Time extended for new bids (minutes): ")) * 60
+			new_auction['BID_LIMIT'] = int(input("Time extended for new bids (minutes): "))
 		except ValueError:
 			print( colorize('Limit must be a number!', 'red') )
 			clean()
