@@ -31,11 +31,13 @@ def actual_timestamp():
 
 def print_timer(timestamp, lines):
     '''
-    Prints a timer -> TODO: quando a duracao e zero quer dizer que o leilao e infinito, logo esta funcao nao precisa de ser usada
+    Prints a timer
     '''
     while True:
         sys.stdout.write("\033[s")
         seconds = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime.now()).total_seconds()
+        if seconds <= 0:
+            break
         clean(lines = lines)
         print(colorize('ENDS IN:        ', 'pink') + str(datetime.timedelta(seconds=seconds)))
         sys.stdout.write("\033[u")

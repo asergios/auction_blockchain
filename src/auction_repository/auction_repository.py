@@ -67,7 +67,7 @@ def store(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     ## TEMPORARY FIX
     data = json.loads(fromBase64(j['DATA']))
     logger.debug('DATA = %s', data)
-    auction_id = db.store_auction(data['TITLE'], data['DESCRIPTION'], data['TYPE'], data['SUBTYPE'], data['AUCTION_EXPIRES'], data['BID_LIMIT'])
+    auction_id = db.store_auction(data['TITLE'], data['DESCRIPTION'], data['TYPE'], data['SUBTYPE'], data['AUCTION_EXPIRES'])
     nonce = data['NONCE']
     data = {'NONCE':nonce, 'AUCTION_ID':auction_id}
 
@@ -244,7 +244,7 @@ def validate_bid(j, sock, addr, oc, cryptopuzzle, addr_man, db):
 
     onion2 = {'ONION_1': onion1, 'SIGNATURE': data['SIGNATURE'], 'SEQUENCE': sequence}
     signature_repository = cm.sign(json.dumps(onion2).encode('UTF-8'))
-    reply = {'ACTION': 'RECEIPT', 'RECEIPT': onion2, 'SIGNATURE': toBase64(signature_repository)}
+    reply = {'ACTION': 'RECEIPT', 'RECEIPT': {"ONION_2" : onion2, 'SIGNATURE': toBase64(signature_repository)}}
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr_client)
 

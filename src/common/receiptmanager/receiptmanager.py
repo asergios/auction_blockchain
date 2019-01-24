@@ -13,7 +13,10 @@ class ReceiptManager:
 
 	def __init__(self, cc):
 		self.cc = cc
-		self.cc_number = self.cc.get_identity()[1]
+		self.cc_number = str(self.cc.get_identity()[1])
+
+	def validate_receipt(self, receipt):
+		pass
 
 	def save_receipt(self, auction_id, receipt):
 		'''
@@ -25,7 +28,7 @@ class ReceiptManager:
 		self.check_dir()
 
 		# Opening File Where Receipt Will Be Stored
-		file = open('src/client/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'wb')
+		file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'wb')
 		# Getting User Password Key
 		pw = self.get_key()
 		# Building HMAC for receipt
@@ -47,9 +50,9 @@ class ReceiptManager:
 		self.check_dir()
 
 		# Checking if such receipt exists
-		if os.path.isfile('src/client/receiptmanager/receipts/'+self.cc_number+'/'+auction_id):
+		if os.path.isfile('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id):
 			# Opening receipt file
-			file = open('src/client/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'rb')
+			file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'rb')
 			# Getting the key
 			if not pw:
 				pw = self.get_key()
@@ -82,7 +85,7 @@ class ReceiptManager:
 
 		receipts = []
 		# For Each Receipt
-		for filename in os.listdir('src/client/receiptmanager/receipts/'+self.cc_number):
+		for filename in os.listdir('src/common/receiptmanager/receipts/'+self.cc_number):
 			# Ignore pwd file
 			if filename.startswith('.'): continue
 			# Add receipt to receipts list
@@ -96,15 +99,15 @@ class ReceiptManager:
 			Getting new password from user
 		'''
 		# Checking if there is a password already set
-		if os.path.isfile("src/client/receiptmanager/receipts/"+self.cc_number+"/.pwd"):
+		if os.path.isfile("src/common/receiptmanager/receipts/"+self.cc_number+"/.pwd"):
 			# Getting .pwd contents and sign it
-			file = open("src/client/receiptmanager/receipts/"+self.cc_number+"/.pwd", "rb")
+			file = open("src/common/receiptmanager/receipts/"+self.cc_number+"/.pwd", "rb")
 			key = self.cc.sign(file.read())
 			file.close()
 		else:
 			# Building new random for password
 			new = os.urandom(128)
-			file = open("src/client/receiptmanager/receipts/"+self.cc_number+"/.pwd", "wb")
+			file = open("src/common/receiptmanager/receipts/"+self.cc_number+"/.pwd", "wb")
 			file.write(new)
 			file.close()
 			key = self.cc.sign(new)
@@ -123,19 +126,19 @@ class ReceiptManager:
 		'''
 			Check if DIR exists, if it doesn't, create a new one
 		'''
-		if os.path.isdir("src/client/receiptmanager/receipts/"+self.cc_number): return
-		else: os.mkdir("src/client/receiptmanager/receipts/"+self.cc_number)
+		if os.path.isdir("src/common/receiptmanager/receipts/"+self.cc_number): return
+		else: os.mkdir("src/common/receiptmanager/receipts/"+self.cc_number)
 
 	def check_perm(self):
 		'''
 			Checks read and write permissions
 		'''
-		while(not os.access('src/client/receiptmanager/receipts', os.R_OK)):
-			print( colorize("I have no READ permissions, please allow READ permissions at src/client/receiptmanager/receipts", 'red') )
+		while(not os.access('src/common/receiptmanager/receipts', os.R_OK)):
+			print( colorize("I have no READ permissions, please allow READ permissions at src/common/receiptmanager/receipts", 'red') )
 			input("Press any key to try again...")
 			clean(lines = 2)
 
-		while(not os.access('src/client/receiptmanager/receipts', os.W_OK)):
-			print( colorize("I have no WRITE permissions, please allow WRITE permissions at src/client/receiptmanager/receipts", 'red') )
+		while(not os.access('src/common/receiptmanager/receipts', os.W_OK)):
+			print( colorize("I have no WRITE permissions, please allow WRITE permissions at src/common/receiptmanager/receipts", 'red') )
 			input("Press any key to try again...")
 			clean(lines = 2)

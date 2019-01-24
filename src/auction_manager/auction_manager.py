@@ -155,21 +155,6 @@ def validate_auction(j, sock, addr, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    if 'BID_LIMIT' not in message:
-        reply['STATE'] = 'NOT OK'
-        reply['ERROR'] = 'MISSING BID_LIMIT'
-        logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-        return False
-
-    bid_limit = message['BID_LIMIT']
-    if bid_limit < 0:
-        reply['STATE'] = 'NOT OK'
-        reply['ERROR'] = 'BID_LIMIT LESS THAN ZERO'
-        logger.error('REPLY CLIENT = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-        return False
-
     nonce = oc.add((cm.get_identity()[1], addr))
     message['ACTION'] = 'STORE'
     message['NONCE'] = toBase64(nonce)

@@ -15,12 +15,12 @@ class RDB:
     def __init__(self, path='src/auction_repository/repository.db'):
         self.db = sqlite3.connect(path)
 
-    def store_auction(self, title, desc, atype, subtype, duration, limit):
+    def store_auction(self, title, desc, atype, subtype, duration):
         start = datetime.now()
         stop = (start + timedelta(hours=duration)).timestamp() if duration > 0 else 0
         cursor = self.db.cursor()
-        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, duration, start, stop, blimit) VALUES(?,?,?,?,?,?,?,?)',
-                (title, desc, atype, subtype, duration, start, stop, limit))
+        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, duration, start, stop) VALUES(?,?,?,?,?,?,?)',
+                (title, desc, atype, subtype, duration, start, stop))
         rv = cursor.lastrowid
         self.db.commit()
         return rv

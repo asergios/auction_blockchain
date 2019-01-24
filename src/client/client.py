@@ -61,7 +61,6 @@ def wait_for_answer(sock, action):
 		try:
 			data, addr = sock.recvfrom(8192)
 			if data:
-				logging.error(data)
 				answer = json.loads(data.decode('UTF-8'))
 				if(answer["ACTION"] == action):
 					return answer
@@ -102,7 +101,6 @@ def create_new_auction(*arg):
 			"TYPE": ___,				# Type of the auction 1 being english auction and 2 being blind auction
 			"SUBTYPE": ___,				# SubType of the auction, as if it hides the identity or not
 			"AUCTION_EXPIRES": ___,		# Expiration of Auction is hours
-			"BID_LIMIT": ___,			# Time limit for new bids
 			"CODE": ___,				# Dynamic code that user wrote
 			"NONCE": ___,				# NONCE given by the server
 		}
@@ -235,23 +233,6 @@ def create_new_auction(*arg):
 			else:
 				print( colorize('Please pick a positive number.', 'red') )
 				clean()
-
-	# Times That Auction Is Extended in case of new bids
-	while True:
-		try:
-			new_auction['BID_LIMIT'] = int(input("Time extended for new bids (minutes): "))
-		except ValueError:
-			print( colorize('Limit must be a number!', 'red') )
-			clean()
-			continue
-		else:
-			if new_auction['BID_LIMIT'] >= 0:
-				clean(True)
-				break
-			else:
-				print( colorize('Please pick a positive number.', 'red') )
-				clean()
-
 
 	# Dynamic Code For Bid Validation
 	print("Do you wish to upload code for bid validation?")
@@ -640,8 +621,11 @@ def make_bid(arg):
 	if not server_answer: return
 	logging.info("Received Answer From Server: " + json.dumps(server_answer))
 
-	# TODO: what will receive? receipt etc...
-	save_receipt("12345", "12345", "receipt")
+	logging.info("Validating and Saving Receipt...")
+
+	rm = ReceiptManager(cc)
+	rm.validate_receipt(server_answer["RECEIPT"])
+	rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"))
 
 	pass
 
