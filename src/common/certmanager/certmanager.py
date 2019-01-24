@@ -13,10 +13,6 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(leve
 logger = logging.getLogger('CM')
 logger.setLevel(logging.DEBUG)
 
-'''
-NOT FULLY TESTED, BE CAREFUL
-'''
-
 class CertManager:
 
     def __init__(self, cert = None, priv_key = None, pub_key = None):

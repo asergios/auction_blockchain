@@ -521,11 +521,13 @@ def make_bid(arg):
 	if (is_english):
 		value = encrypt(cipher_key, bytes([value]))
 
+	nonce = os.urandom(64)
 	# Ask for CryptoPuzzle
 	crypto_puzzle_request = {
 								"ACTION" : "CRYPTOPUZZLE",
 								"PUBLIC_KEY" : toBase64(identity),
-								"AUCTION_ID" : auction_id
+								"AUCTION_ID" : auction_id,
+								"NONCE" : toBase64(nonce)
 							}
 
 	# Send CryptoPuzzle Request
@@ -542,7 +544,8 @@ def make_bid(arg):
 		{
 			"ACTION" : "CRYPTOPUZZLE",
 			"PUBLIC_KEY" : _____,
-			"AUCTION_ID" : ________
+			"AUCTION_ID" : ________,
+			"NONCE" : _______
 		}
 		EXPECTED ANSWER:
 		{
@@ -551,6 +554,7 @@ def make_bid(arg):
 							"PUZZLE" : ____,			# These are the values that create_puzzle will return
 							"STARTS_WITH" : ____,
 							"ENDS_WITH" : ____,
+							"NONCE" : _____
 						}
 			"SIGNATURE" :  _____  (OF MESSAGE),
 			"CERTIFICATE" : _____
@@ -564,7 +568,8 @@ def make_bid(arg):
 	message = server_answer['MESSAGE']
 	logging.info("Verifying certificate and server signature of message")
 
-	if not verify_server( server_answer['CERTIFICATE'], json.dumps(message).encode('UTF-8'), server_answer['SIGNATURE'] ):
+	if  toBase64(nonce) != message["NONCE"] or \
+		 not verify_server( server_answer['CERTIFICATE'], json.dumps(message).encode('UTF-8'), server_answer['SIGNATURE'] ):
 		logging.warning("Server Verification Failed")
 		print( colorize('Server Validation Failed!', 'red') )
 		input("Press any key to continue...")

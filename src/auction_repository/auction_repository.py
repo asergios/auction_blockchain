@@ -164,11 +164,11 @@ def cryptopuzzle(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     auction_id = j['AUCTION_ID']
     public_key = fromBase64(j['PUBLIC_KEY'])
     (puzzle, starts, ends) = cp.create_puzzle(public_key)
-    nonce = oc.add(public_key)
+    nonce = j['NONCE']
     message = { 'PUZZLE':puzzle,
                 'STARTS_WITH': toBase64(starts),
                 'ENDS_WITH':toBase64(ends),
-                'NONCE':toBase64(nonce)}
+                'NONCE': nonce}
 
     # TODO: You need the private key for signing
     pk = load_file_raw('src/auction_repository/keys/private_key.pem')
