@@ -2,7 +2,10 @@
 
 import sqlite3
 import logging
+import json
+import os
 from datetime import datetime, timedelta
+from Crypto.Hash import SHA256
 from ..certmanager import CertManager
 
 
@@ -19,8 +22,10 @@ class RDB:
         start = datetime.now()
         stop = (start + timedelta(hours=duration)).timestamp() if duration > 0 else 0
         cursor = self.db.cursor()
-        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, duration, start, stop) VALUES(?,?,?,?,?,?,?)',
-                (title, desc, atype, subtype, duration, start, stop))
+        # Seed para a primeira bid usar na hash (blockchain)
+        seed = os.urandom(32).hex()
+        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, duration, start, stop, seed) VALUES(?,?,?,?,?,?,?,?)',
+                (title, desc, atype, subtype, duration, start, stop, seed))
         rv = cursor.lastrowid
         self.db.commit()
         return rv
@@ -41,6 +46,16 @@ class RDB:
             cursor.execute('SELECT * FROM auctions WHERE type=2 AND open=1 AND id=?', (auction_id,))
         return cursor.fetchall()
 
+    def get_auction(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT * FROM auctions WHERE open=1 AND id=?', (auction_id,))
+        return cursor.fetchone()
+
+    def get_last_bid(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT * FROM bids WHERE auction_id=? ORDER BY sequence DESC', (auction_id,))
+        return cursor.fetchone()
+
     def last_sequence(self, auction_id):
         ls = -1
 
@@ -53,11 +68,26 @@ class RDB:
 
         return ls
 
-    def store_bid(self, auction_id, certificate, value):
-        sequence = self.last_sequence(auction_id) + 1
+    def store_bid(self, auction_id, identity, value):
+        last_bid = self.get_last_bid(auction_id)
+
+        # se nao existe uma bid anterior
+        if not last_bid:
+            prev_hash = self.get_auction(auction_id)[8]
+            sequence = 0
+        # se existe bid anterior
+        else:
+            last_bid = self.get_last_bid(auction_id)
+            last_bid_dict = {
+                                "PREV_VALUE" : last_bid[2],
+                                "IDENTITY"   : last_bid[3],
+                                "VALUE"      : last_bid[4]
+                            }
+            prev_hash = SHA256.new(data=json.dumps(last_bid_dict).encode("UTF-8")).hexdigest()
+            sequence = last_bid[1] + 1
 
         cursor = self.db.cursor()
-        cursor.execute('INSERT INTO bids(auction_id, sequence, certificate, value) VALUES(?,?,?,?)',(auction_id, sequence, certificate, value))
+        cursor.execute('INSERT INTO bids(auction_id, sequence, prev_hash, identity, value) VALUES(?,?,?,?,?)',(auction_id, sequence, prev_hash, identity, value))
         self.db.commit()
 
         return sequence
