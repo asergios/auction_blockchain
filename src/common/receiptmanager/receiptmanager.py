@@ -2,9 +2,11 @@
 from ..cryptmanager import *
 from ..utils import *
 from ..cartaodecidadao import CartaoDeCidadao
+from ..certmanager import CertManager
 from Crypto.Hash import SHA256
 from hmac import compare_digest
 import hashlib
+import json
 import os
 import getpass
 import sys
@@ -16,7 +18,27 @@ class ReceiptManager:
 		self.cc_number = str(self.cc.get_identity()[1])
 
 	def validate_receipt(self, receipt):
-		pass
+
+		repository_onion = json.dumps(receipt["ONION_2"]).encode('UTF-8')
+		repository_onion_sig = fromBase64(receipt["SIGNATURE"])
+		repository_cert = CertManager.get_cert_by_name('repository.crt')
+
+		manager_onion = json.dumps(receipt["ONION_2"]["ONION_1"]).encode('UTF-8')
+		manager_onion_sig = fromBase64(receipt["ONION_2"]["SIGNATURE"])
+		manager_cert = CertManager.get_cert_by_name('manager.crt')
+
+		client_onion = json.dumps(receipt["ONION_2"]["ONION_1"]["ONION_0"]).encode('UTF-8')
+		client_onion_sig = fromBase64(receipt["ONION_2"]["ONION_1"]["SIGNATURE"])
+		client_cert = self.cc.get_certificate_raw()
+
+		cm = CertManager(cert = repository_cert)
+		valid_repo = cm.verify_signature( repository_onion_sig , repository_onion )
+		cm = CertManager(cert = manager_cert)
+		valid_mana = cm.verify_signature( manager_onion_sig , manager_onion )
+		cm = CertManager(cert = client_cert)
+		valid_client = cm.verify_signature( client_onion_sig , client_onion )
+
+		return valid_repo and valid_mana and valid_client
 
 	def save_receipt(self, auction_id, receipt):
 		'''

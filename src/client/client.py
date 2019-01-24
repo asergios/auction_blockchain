@@ -239,7 +239,8 @@ def create_new_auction(*arg):
 	choice = input("[y/N] => ")
 	choice = choice.upper()
 
-	clean(lines=2)
+	clean(lines=1)
+	clean(lines=1)
 
 	if(choice.startswith("Y")):
 		plat = platform.system()
@@ -624,10 +625,16 @@ def make_bid(arg):
 	logging.info("Validating and Saving Receipt...")
 
 	rm = ReceiptManager(cc)
-	rm.validate_receipt(server_answer["RECEIPT"])
-	rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"))
-
-	pass
+	if ( rm.validate_receipt(server_answer["RECEIPT"]) ):
+		clean(lines=1)
+		print( colorize( "Receipt received, please type your password to save it.", 'pink' ) )
+		rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"))
+		clean(lines=1)
+		input( colorize( "Bid successfully set. Press any key to continue...", 'blue' ) )
+	else:
+		logging.error("Received an invalid receipt!")
+		clean(lines=1)
+		input(colorize( "Invalid Receipt Received, press any key to continue...", 'red' ))
 
 def terminate_auction(auction_id):
 	'''
