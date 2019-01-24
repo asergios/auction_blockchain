@@ -166,8 +166,8 @@ def list_blind(j, sock, addr, oc, cryptopuzzle, addr_man, db):
 
 def cryptopuzzle(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     auction_id = j['AUCTION_ID']
-    public_key = fromBase64(j['PUBLIC_KEY'])
-    (puzzle, starts, ends) = cp.create_puzzle(public_key)
+    certificate = fromBase64(j['IDENTITY'])
+    (puzzle, starts, ends) = cp.create_puzzle(certificate)
     nonce = j['NONCE']
     message = { 'PUZZLE':puzzle,
                 'STARTS_WITH': toBase64(starts),
@@ -195,12 +195,15 @@ def offer(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     #O puzzle ja funciona como um nonce
     #nonce = fromBase64(message['NONCE'])
     solution = fromBase64(message['SOLUTION'])
-    if cp.validate_solution(fromBase64(message['CERTIFICATE']), solution):
+    if cp.validate_solution(fromBase64(message['IDENTITY']), solution):
         nonce = toBase64(oc.add(addr))
         cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
         data = {'MESSAGE':message, 'SIGNATURE': j['SIGNATURE'], 'NONCE':nonce}
+        # TODO: má pratica, devia confirmar se o utilizador compriu as normas definidas pelo leilao (e se ele exites, eu consegui criar uma bid de um leilao que nao existia por causa disto)
+        # Tambem é importante notar que apenas se for o manager a esconder a informacao é que ele vai ser validado pelo manager na criacao da oferta
         if 'MANAGER_SECRET' in j:
             data['MANAGER_SECRET'] = j['MANAGER_SECRET']
+            data['CERTIFICATE'] = j['CERTIFICATE']
         # TODO: a message é demasiado longa para ser cifrada com uma chave assimetrica / da erro
         #request = {'ACTION':'VALIDATE_BID', 'DATA':toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
         #### TEMPORARY FIX
@@ -232,11 +235,11 @@ def validate_bid(j, sock, addr, oc, cryptopuzzle, addr_man, db):
         return False
     onion1 = data['ONION_1']
     onion0 = onion1['ONION_0']
-    certificate = onion0['CERTIFICATE']
+    identity = onion0['IDENTITY']
     value = onion0['VALUE']
     auction_id = onion0['AUCTION']
 
-    sequence = db.store_bid(auction_id, certificate, value)
+    sequence = db.store_bid(auction_id, identity, value)
 
     # TODO: You need the private key for signing
     pk = load_file_raw('src/auction_repository/keys/private_key.pem')

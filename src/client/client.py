@@ -462,7 +462,8 @@ def make_bid(arg):
 
 	# Init values for the bid (value to offer and identity of user)
 	value = 0
-	identity = cc.get_certificate_raw()
+	identity = cc.get_identity()[0] + ' - ' + cc.get_identity()[1]
+	certificate = cc.get_certificate_raw()
 
 	# Ask user for value to offer
 	while True:
@@ -498,7 +499,8 @@ def make_bid(arg):
 
 	# Need to hide identity?
 	if (hidden_identity):
-		identity = encrypt(cipher_key, identity)
+		identity = encrypt(cipher_key, identity.encode("UTF-8"))
+		certificate = encrypt(cipher_key, certificate)
 	# Need to hide value?
 	if (is_english):
 		value = encrypt(cipher_key, bytes([value]))
@@ -507,7 +509,7 @@ def make_bid(arg):
 	# Ask for CryptoPuzzle
 	crypto_puzzle_request = {
 								"ACTION" : "CRYPTOPUZZLE",
-								"PUBLIC_KEY" : toBase64(identity),
+								"IDENTITY" : toBase64(identity),
 								"AUCTION_ID" : auction_id,
 								"NONCE" : toBase64(nonce)
 							}
@@ -519,13 +521,13 @@ def make_bid(arg):
 	'''
 		DESCRIPTION:
 			This message is to request a cryptopuzzle to the repository,
-			not much to add about it, it gives a public_key to be used on the
+			not much to add about it, it gives a identity to be used on the
 			cryptopuzzle generation (function create_puzzle in CryptoPuzzle package)
 
 		SENT MESSAGE:
 		{
 			"ACTION" : "CRYPTOPUZZLE",
-			"PUBLIC_KEY" : _____,
+			"IDENTITY" : _____,
 			"AUCTION_ID" : ________,
 			"NONCE" : _______
 		}
@@ -564,7 +566,7 @@ def make_bid(arg):
 	bid = 	{
 				"AUCTION" 		: auction_id,
 				"VALUE"			: toBase64(value),
-				"CERTIFICATE"	: toBase64(identity),
+				"IDENTITY"		: toBase64(identity),
 				"SOLUTION"		: toBase64(solution),
 			}
 
@@ -579,6 +581,7 @@ def make_bid(arg):
 	# Key encrypted with manager public_key so he can read identity/value
 	if not client_hides:
 		message["MANAGER_SECRET"] = toBase64(hidden_cipher_key)
+		message["CERTIFICATE"] = toBase64(certificate)
 
 	# Send Offer
 	logging.info("Sending Bid To Repository")

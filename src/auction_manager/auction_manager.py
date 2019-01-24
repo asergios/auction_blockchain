@@ -196,7 +196,7 @@ def validate_bid(j, sock, addr, oc, addr_rep, db):
     message = data['MESSAGE']
     signature = data['SIGNATURE']
     message = data['MESSAGE']
-    certificate = fromBase64(message['CERTIFICATE'])
+    certificate = fromBase64(data['CERTIFICATE'])
     value = fromBase64(message['VALUE'])
 
     # In case of being MANAGER HIDES, get the key and values of the BID
