@@ -140,6 +140,21 @@ def validate_auction(j, sock, addr, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
+    if 'WHO_HIDES' not in message:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'MISSING WHO_HIDES'
+        logger.debug('CLIENT REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+
+    whohides = message['WHO_HIDES']
+    if whohides != 1 and whohides != 2:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'INVALID WHO_HIDES'
+        logger.debug('CLIENT REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+
     if 'AUCTION_EXPIRES' not in message:
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'MISSING AUCTION_EXPIRES'
@@ -192,18 +207,23 @@ def validate_bid(j, sock, addr, oc, addr_rep, db):
     ### TEMPORARY FIX
     data = j['DATA']
     logger.debug('DATA = %s', data)
+
     nonce = data['NONCE']
     message = data['MESSAGE']
     signature = data['SIGNATURE']
-    message = data['MESSAGE']
+    hidden_value = data['HIDDEN_VALUE']
+    hidden_identity = data['HIDDEN_IDENTITY']
+    identity = data['MESSAGE']['IDENTITY']
+    value = data['MESSAGE']['VALUE']
     certificate = fromBase64(data['CERTIFICATE'])
-    value = fromBase64(message['VALUE'])
+    message = data['MESSAGE']
+    secret = cm.decrypt(fromBase64(data['MANAGER_SECRET']))
 
-    # In case of being MANAGER HIDES, get the key and values of the BID
-    if 'MANAGER_SECRET' in data:
-        secret = cm.decrypt(fromBase64(data['MANAGER_SECRET']))
+    if hidden_identity:
         certificate = decrypt(secret, certificate)
-        value = decrypt(secret, value)
+        identity = decrypt(secret, fromBase64(identity))
+    if hidden_value:
+        value = decrypt(secret, fromBase64(value))
 
     cm = CertManager(cert = certificate)
 

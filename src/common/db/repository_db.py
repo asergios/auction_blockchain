@@ -18,14 +18,14 @@ class RDB:
     def __init__(self, path='src/auction_repository/repository.db'):
         self.db = sqlite3.connect(path)
 
-    def store_auction(self, title, desc, atype, subtype, duration):
+    def store_auction(self, title, desc, atype, subtype, whohides, duration):
         start = datetime.now()
         stop = (start + timedelta(hours=duration)).timestamp() if duration > 0 else 0
         cursor = self.db.cursor()
         # Seed para a primeira bid usar na hash (blockchain)
         seed = os.urandom(32).hex()
-        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, duration, start, stop, seed) VALUES(?,?,?,?,?,?,?,?)',
-                (title, desc, atype, subtype, duration, start, stop, seed))
+        cursor.execute('INSERT INTO auctions(title, desc, type, subtype, who_hides, duration, start, stop, seed) VALUES(?,?,?,?,?,?,?,?,?)',
+                (title, desc, atype, subtype, whohides, duration, start, stop, seed))
         rv = cursor.lastrowid
         self.db.commit()
         return rv
@@ -93,7 +93,7 @@ class RDB:
 
         # se nao existe uma bid anterior
         if not last_bid:
-            prev_hash = self.get_auction(auction_id)[8]
+            prev_hash = self.get_auction(auction_id)[9]
             sequence = 0
         # se existe bid anterior
         else:

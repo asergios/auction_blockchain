@@ -327,6 +327,7 @@ def list_auction(arg):
 	'''
 
 	auction_id = arg[0] if 0 < len(arg) else None
+	return_value = arg[1] if 1 < len(arg) else False
 
 	request = {"ACTION" : "LIST"}
 	# If filtering information
@@ -389,6 +390,7 @@ def list_auction(arg):
 	if not auction_id or isinstance(auction_id, (list,)):
 		auctions = []
 		auction_list = server_answer['MESSAGE']['LIST']
+		if return_value: return auction_list
 		# test subject comment line above and verify_server to use it
 		# auction_list = [{'TITLE': 'test', 'AUCTION_ID': 1},{'TITLE': 'test2', 'AUCTION_ID': 2}]
 
@@ -426,8 +428,16 @@ def list_auction(arg):
 
 		auction_info.append( colorize("============================", 'green') )
 		for bid in auction["BIDS"]:
-			auction_info.append( colorize("IDENTITY: " + bid["IDENTITY"], 'blue') )
-			auction_info.append( colorize("VALUE: " + bid["VALUE"], 'blue') )
+			if auction["SUBTYPE"] == "HIDDEN IDENTITY":
+				auction_info.append( colorize("IDENTITY: " + bid["IDENTITY"], 'blue') )
+			else:
+				auction_info.append( colorize("IDENTITY: " + fromBase64(bid["IDENTITY"]).decode(), 'blue') )
+
+			if auction["TYPE"] == "ENGLISH":
+				auction_info.append( colorize("VALUE (EUR): " + fromBase64(bid["VALUE"]).decode(), 'blue') )
+			else:
+				auction_info.append( colorize("VALUE (EUR): " + bid["VALUE"], 'blue') )
+
 			auction_info.append( colorize("PREVIOUS HASH:" + bid["PREV_HASH"], 'blue') )
 			auction_info.append( colorize("============================", 'green') )
 
@@ -479,7 +489,7 @@ def make_bid(arg):
 
 	# Init values for the bid (value to offer and identity of user)
 	value = 0
-	identity = cc.get_identity()[0] + ' - ' + cc.get_identity()[1]
+	identity = (cc.get_identity()[0] + ' - ' + cc.get_identity()[1]).encode("UTF-8")
 	certificate = cc.get_certificate_raw()
 
 	# Ask user for value to offer
@@ -502,6 +512,7 @@ def make_bid(arg):
 				print( colorize('Please pick a positive number.', 'red') )
 				clean()
 
+	value = str(value).encode("UTF-8")
 	# Preparing data
 	print( colorize( "Preparing data, please wait...", 'pink' ) )
 	logging.info("Auction Requires to Encrypt Values, Encrypting...")
@@ -516,10 +527,10 @@ def make_bid(arg):
 
 	# Need to hide identity?
 	if (hidden_identity):
-		identity = encrypt(cipher_key, identity.encode("UTF-8"))
+		identity = encrypt(cipher_key, identity)
 		certificate = encrypt(cipher_key, certificate)
 	# Need to hide value?
-	if (is_english):
+	if (not is_english):
 		value = encrypt(cipher_key, bytes([value]))
 
 	nonce = os.urandom(64)
@@ -647,6 +658,7 @@ def make_bid(arg):
 	rm = ReceiptManager(cc)
 	if ( rm.validate_receipt(server_answer["RECEIPT"]) ):
 		clean(lines=1)
+		server_answer["RECEIPT"]["KEY"] = toBase64(cipher_key)
 		print( colorize( "Receipt received, please type your password to save it.", 'pink' ) )
 		rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"))
 		clean(lines=1)
@@ -755,7 +767,18 @@ def my_bids(*arg):
 	rm = ReceiptManager(cc)
 	participated_auctions = rm.get_participated_auctions()
 
-	return list_auction(("GLOBAL", participated_auctions))
+	auction_list = list_auction((participated_auctions, True))
+	auctions = []
+	# Build Titles Of Auctions To Be printed
+	for auction in auction_list:
+		title = colorize('[ENGLISH] ', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND] ', 'pink')
+		auctions.append({title + auction["TITLE"] : (list_auction, (auction["AUCTION_ID"],)) })
+		rm.get_bids()
+
+	auctions.append({ "Exit" : None })
+
+	# Print the menu
+	print_menu(auctions)
 
 
 def print_menu(menu, info_to_print = None, timestamp = None):
