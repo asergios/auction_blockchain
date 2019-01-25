@@ -16,6 +16,7 @@ class ReceiptManager:
 	def __init__(self, cc):
 		self.cc = cc
 		self.cc_number = str(self.cc.get_identity()[1])
+		self.pw = None
 
 	def validate_receipt(self, receipt):
 
@@ -114,32 +115,51 @@ class ReceiptManager:
 
 		return auctions
 
-	def get_receipts(self):
+	def get_receipt_value(self, auction_id, hidden_value):
 		'''
-			Get All Receipts
+			Get Receipt Value
 		'''
 		# Checking for Permissions on Folder
 		self.check_perm()
 		# Checking existence of user dir
 		self.check_dir()
-		# Getting the key
-		pw = self.get_key()
 
-		receipts = []
-		# For Each Receipt
-		for filename in os.listdir('src/common/receiptmanager/receipts/'+self.cc_number):
-			# Ignore pwd file
-			if filename.startswith('.'): continue
-			# Add receipt to receipts list
-			receipts.append(self.get_receipt(filename, pw))
+		# Checking if such receipt exists
+		if os.path.isfile('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id):
+			# Opening receipt file
+			file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'rb')
+			# Getting the key
+			pw = self.get_key()
+			# Decrypting Receipt
+			result = decrypt(pw, file.read())
+			file.close()
 
-		return receipts
+			# Checking integrity of the receipt
+			if(compare_digest(result[:32], SHA256.new(result[32:]).digest())):
+				receipt = json.loads(result[32:])
+				value = receipt["ONION_2"]["ONION_1"]["ONION_0"]["VALUE"]
+				if hidden_value:
+					secret = fromBase64(receipt["KEY"])
+					return decrypt(secret, fromBase64(value)).decode()
+				else:
+					return fromBase64(value).decode()
+			else:
+				print( colorize("ERROR: Corrupted File Or Unauthorized Access", 'red') )
+				input("Press any key to continue...")
+				return None
+		else:
+			print( colorize("ERROR: Receipt Not Found", 'red') )
+			input("Press any key to continue...")
+			return None
 
 
 	def get_key(self):
 		'''
 			Getting new password from user
 		'''
+		if not self.pw is None:
+			return self.pw
+
 		# Checking if there is a password already set
 		if os.path.isfile("src/common/receiptmanager/receipts/"+self.cc_number+"/.pwd"):
 			# Getting .pwd contents and sign it
@@ -154,8 +174,9 @@ class ReceiptManager:
 			file.close()
 			key = self.cc.sign(new)
 
+		self.pw = self.password_builder(key, self.cc.get_public_key()[10:26])
 		# Return Hashing Of Password
-		return self.password_builder(key, self.cc.get_public_key()[10:26])
+		return self.pw
 
 	def password_builder(self, password, salt):
 		'''

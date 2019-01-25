@@ -772,8 +772,8 @@ def my_bids(*arg):
 	# Build Titles Of Auctions To Be printed
 	for auction in auction_list:
 		title = colorize('[ENGLISH] ', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND] ', 'pink')
-		auctions.append({title + auction["TITLE"] : (list_auction, (auction["AUCTION_ID"],)) })
-		rm.get_bids()
+		value = rm.get_receipt_value(str(auction["AUCTION_ID"]), auction["TYPE"] == 2)
+		auctions.append({title + auction["TITLE"] + colorize('\n	Your BID: ' + value + '€', 'red'): (list_auction, (auction["AUCTION_ID"],)) })
 
 	auctions.append({ "Exit" : None })
 

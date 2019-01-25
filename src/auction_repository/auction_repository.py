@@ -280,6 +280,8 @@ def offer(j, sock, addr, oc, cryptopuzzle, addr_man, db):
                 logger.debug('CLIENT REPLY = %s', reply)
                 sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
+
+            # TODO: Faltam coisas para o manager validar a bid (argumentos para o codigo dinamico, valor da ultima oferta etc)
             nonce = toBase64(oc.add(addr))
             data = {    'MESSAGE':message,
                         'SIGNATURE': j['SIGNATURE'],
