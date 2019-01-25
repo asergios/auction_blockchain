@@ -30,6 +30,8 @@ class RDB:
         self.db.commit()
         return rv
 
+    # Not being used, just here as backup
+    '''
     def list_english(self, auction_id=None):
         cursor = self.db.cursor()
         if auction_id is None:
@@ -44,6 +46,19 @@ class RDB:
             cursor.execute('SELECT * FROM auctions WHERE type=2 AND open=1')
         else:
             cursor.execute('SELECT * FROM auctions WHERE type=2 AND open=1 AND id=?', (auction_id,))
+        return cursor.fetchall()
+    '''
+
+    def list_global(self, auction_id):
+        cursor = self.db.cursor()
+        if not auction_id is None:
+            placeholder= '?'
+            placeholders= ', '.join(placeholder for id in auction_id)
+            query= 'SELECT * FROM auctions WHERE id IN (%s)' % placeholders
+            cursor.execute(query, auction_id)
+        else:
+            query= 'SELECT * FROM auctions'
+            cursor.execute(query)
         return cursor.fetchall()
 
     def get_auction(self, auction_id):

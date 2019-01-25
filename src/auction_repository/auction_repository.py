@@ -42,8 +42,7 @@ def main(args):
 
     #switch case para tratar de mensagens
     mActions = {'STORE': store,
-            'ENGLISH': list_english,
-            'BLIND': list_blind,
+            'LIST' : list_auctions,
             'CRYPTOPUZZLE': cryptopuzzle,
             'OFFER': offer,
             'VALIDATE_BID_REPLY':validate_bid,
@@ -80,6 +79,68 @@ def store(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     return False
 
 
+def list_auctions(j, sock, addr, oc, cryptopuzzle, addr_man, db):
+    nonce = fromBase64(j['NONCE'])
+    auction_id = None
+    if 'AUCTION_ID' in j:
+        auction_id = j['AUCTION_ID']
+
+    if isinstance(auction_id, list) or auction_id is None:
+        auctions = db.list_global(auction_id)
+
+        for_client = []
+        for auction in auctions:
+            l = {
+                    "AUCTION_ID" : auction[0],
+                    "TITLE" : auction[1],
+                    "TYPE"  : auction[3]
+                }
+            for_client.append(l)
+        message = {'NONCE':toBase64(nonce), 'LIST':for_client}
+
+    else:
+        row = db.list_global([auction_id])[0]
+
+        auction = {}
+        bids_db = db.get_bids(auction_id)
+        bids = []
+        for bid in bids_db:
+            bids.append({
+                             "PREV_HASH" : bid[2],
+                             "IDENTITY"   : bid[3],
+                             "VALUE"      : bid[4]
+                        })
+
+        auction['AUCTION_ID'] = row[0]
+        auction['TITLE'] = row[1]
+        auction['DESCRIPTION'] = row[2]
+        auction['TYPE'] = row[3]
+        auction['SUBTYPE'] = row[4]
+        auction['ENDING_TIMESTAMP'] = row[7]
+        auction['SEED'] = row[8]
+        auction['WHO_HIDES'] = None
+        auction['BIDS'] = bids
+        message = {'NONCE':toBase64(nonce), 'AUCTION':auction}
+
+    # TODO: You need the private key for signing
+    pk = load_file_raw('src/auction_repository/keys/private_key.pem')
+    cert = CertManager.get_cert_by_name('repository.crt')
+
+    cm = CertManager(cert = cert, priv_key = pk)
+    sl = cm.sign(json.dumps(message).encode('UTF-8'))
+
+    reply = { 'ACTION': 'LIST_REPLY',
+            'SIGNATURE': toBase64(sl),
+            'CERTIFICATE': toBase64(cert),
+            'MESSAGE': message}
+    logger.debug('CLIENT REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+
+    return False
+
+
+# Not being used, just here as backup
+'''
 def list_english(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     nonce = fromBase64(j['NONCE'])
     auction_id = None
@@ -172,7 +233,7 @@ def list_blind(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
     return False
-
+'''
 
 def cryptopuzzle(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     auction_id = j['AUCTION_ID']

@@ -320,17 +320,16 @@ def list_auction(arg):
 		JSON sent to Auction Repository Description:
 
 		{
-			"ACTION" : "ENGLISH/BLIND",
+			"ACTION" : "LIST",
 			"NONCE"  : _______________
 			(Optional) "AUCTION_ID" : XX
 		}
 	'''
 
-	auction_type = arg[0]
-	auction_id = arg[1] if 1 < len(arg) else None
+	auction_id = arg[0] if 0 < len(arg) else None
 
-	request = {"ACTION" : auction_type}
-	# If get information about a particular auction
+	request = {"ACTION" : "LIST"}
+	# If filtering information
 	if auction_id:
 		request["AUCTION_ID"] = auction_id
 
@@ -342,7 +341,7 @@ def list_auction(arg):
 	# Send request to repository
 	sock_repository.send(request.encode("UTF-8"))
 	# Waiting for server response
-	server_answer = wait_for_answer(sock_repository, auction_type+"_REPLY")
+	server_answer = wait_for_answer(sock_repository, "LIST_REPLY")
 	if not server_answer: return
 
 	'''
@@ -387,7 +386,7 @@ def list_auction(arg):
 		return
 
 	# In case of getting a list of auctions
-	if not auction_id:
+	if not auction_id or isinstance(auction_id, (list,)):
 		auctions = []
 		auction_list = server_answer['MESSAGE']['LIST']
 		# test subject comment line above and verify_server to use it
@@ -395,7 +394,8 @@ def list_auction(arg):
 
 		# Build Titles Of Auctions To Be printed
 		for auction in auction_list:
-			auctions.append({auction["TITLE"] : (list_auction, (auction_type, auction["AUCTION_ID"])) })
+			title = colorize('[ENGLISH] ', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND] ', 'pink')
+			auctions.append({title + auction["TITLE"] : (list_auction, (auction["AUCTION_ID"],)) })
 		auctions.append({ "Exit" : None })
 
 		# Print the menu
@@ -739,9 +739,23 @@ def terminate_auction(auction_id):
 		print( colorize("Something really weird happen, please fill a bug report.", 'red') )
 		input("Press any key to continue...")
 
-def my_bids():
-	#TODO
-	pass
+def my_bids(*arg):
+	'''
+		Browse Participated Auctions
+	'''
+
+	# Scanning user CartaoDeCidadao
+	logging.info("Reading User's Cartao De Cidadao")
+	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
+	cc.scan()
+	clean(lines = 1)
+
+	logging.info("Getting Participated Auctions")
+	print( colorize( "Getting Participated Auctions", 'pink' ) )
+	rm = ReceiptManager(cc)
+	participated_auctions = rm.get_participated_auctions()
+
+	return list_auction(("GLOBAL", participated_auctions))
 
 
 def print_menu(menu, info_to_print = None, timestamp = None):
@@ -784,8 +798,7 @@ def print_menu(menu, info_to_print = None, timestamp = None):
 # Default Menu to be printed to the user
 menu = [
     { "Create new auction": (create_new_auction, None) },
-    { "List Open Auctions [English Auction]": (list_auction, ("ENGLISH", ) ) },
-    { "List Open Auctions [Blind Auction]": (list_auction, ("BLIND", ) ) },
+    { "List Auctions": (list_auction, () ) },
 	{ "Participated Auctions": (my_bids, None)},
 	{ "Exit" : None }
 ]

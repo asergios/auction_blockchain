@@ -94,6 +94,26 @@ class ReceiptManager:
 			input("Press any key to continue...")
 			return None
 
+	def get_participated_auctions(self):
+		'''
+			Get list of participated auctions ids
+		'''
+
+		# Checking for Permissions on Folder
+		self.check_perm()
+		# Checking existence of user dir
+		self.check_dir()
+
+		auctions = []
+		# For Each Receipt
+		for filename in os.listdir('src/common/receiptmanager/receipts/'+self.cc_number):
+			# Ignore pwd file
+			if filename.startswith('.'): continue
+			# Add receipt to receipts list
+			auctions.append(int(filename))
+
+		return auctions
+
 	def get_receipts(self):
 		'''
 			Get All Receipts
