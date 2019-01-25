@@ -38,6 +38,7 @@ def main(args):
                 'CHALLENGE': challenge,
                 'STORE_REPLY': store,
                 'VALIDATE_BID': validate_bid,
+                'TERMINATE' : terminate,
                 'EXIT': exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -72,6 +73,38 @@ def challenge(j, sock, addr, oc, addr_rep, db):
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
     return False
 
+def terminate(j, sock, addr, oc, addr_rep, db):
+    reply = {'ACTION':'TERMINATE_REPLY'}
+
+    s = fromBase64(j['SIGNATURE'])
+    message = j['MESSAGE']
+    nonce = fromBase64(message['NONCE'])
+    cm = CertManager(cert = oc.pop(nonce))
+
+    if not cm.verify_certificate():
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'INVALID CERTIFICATE'
+        logger.debug('CLIENT REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+
+    if not cm.verify_signature(s, json.dumps(j['MESSAGE']).encode('UTF-8')):
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'INVALID SIGNATURE'
+        logger.debug('CLIENT REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+
+    # Verify if request comes from owner
+    if db.get_owner(message["AUCTION_ID"]) != cm.get_identity()[1]:
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'You are not the owner of this auction.'
+        logger.debug('CLIENT REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+
+    #TODO rest of this
+    return False 
 
 def validate_auction(j, sock, addr, oc, addr_rep, db):
     reply = {'ACTION':'CREATE_REPLY'}
@@ -197,7 +230,6 @@ def store(j, sock, addr, oc, addr_rep, db):
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), user_addr)
     return False
-
 
 def validate_bid(j, sock, addr, oc, addr_rep, db):
     # TODO: You need the private key for decrypting the MANAGER_SECRET

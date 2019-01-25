@@ -16,7 +16,12 @@ class ADB:
     def store_user_auction(self, user_cc, auction_id):
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO auctions(cc, auction_id) VALUES (?,?)', (user_cc, auction_id))
-        self.db.commit() 
+        self.db.commit()
+
+    def get_owner(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT cc FROM auctions WHERE auction_id = ?', (auction_id, ))
+        return cursor.fetchone()[0]
 
     def close(self):
         self.db.commit()
