@@ -421,6 +421,7 @@ def list_auction(arg):
 		auction_info.append( colorize('TYPE:		', 'pink') + auction["TYPE"] )
 		auction_info.append( colorize('SUBTYPE:	', 'pink') + auction["SUBTYPE"] )
 		auction_info.append( colorize('HIDDEN BY:	', 'pink') + auction["WHO_HIDES"] )
+		auction_info.append( colorize('SEED:		', 'pink') + auction["SEED"] )
 		auction_info.append( colorize('BIDS:	', 'pink') )
 
 		auction_info.append( colorize("============================", 'green') )
@@ -430,8 +431,16 @@ def list_auction(arg):
 			auction_info.append( colorize("PREVIOUS HASH:" + bid["PREV_HASH"], 'blue') )
 			auction_info.append( colorize("============================", 'green') )
 
+		if len(auction["BIDS"]):
+			are_bids_valid = validate_blockchain(auction["BIDS"], auction["SEED"])
+			if are_bids_valid:
+				auction_info.append( colorize("BLOCKCHAIN:	", 'pink') + "VALID")
+			else:
+				auction_info.append( colorize("BLOCKCHAIN:	", 'red') + "INVALID (contact admin please)")
+
 		auction_info.append( colorize('ENDS IN:	', 'pink') )
 		auction_info.append( "======================================================" )
+
 
 		# Bulding Menu With Options For The Client
 		menu = []

@@ -5,6 +5,8 @@ import sys
 import base64
 import time
 import datetime
+import json
+from Crypto.Hash import SHA256
 
 
 colors = {'blue': '\033[94m', 'pink': '\033[95m', 'green': '\033[92m', 'red' : '\033[91m'}
@@ -16,6 +18,19 @@ def toBase64(content):
     '''
     return base64.urlsafe_b64encode(content).decode()
 
+
+def validate_blockchain(bids, seed):
+    '''
+    Validate BlockChain of Bids
+    '''
+
+    prev_hash = bids[0]["PREV_HASH"]
+    for bid in bids[1:]:
+        hash = SHA256.new(data=json.dumps(bid).encode("UTF-8")).hexdigest()
+        if prev_hash != hash : return False
+        prev_hash = bid["PREV_HASH"]
+
+    return True if prev_hash == seed else False
 
 def fromBase64(base64string):
     '''

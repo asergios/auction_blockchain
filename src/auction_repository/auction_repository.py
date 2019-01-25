@@ -112,6 +112,7 @@ def list_english(j, sock, addr, oc, cryptopuzzle, addr_man, db):
             auction['TYPE'] = row[3]
             auction['SUBTYPE'] = row[4]
             auction['ENDING_TIMESTAMP'] = row[7]
+            auction['SEED'] = row[8]
             auction['WHO_HIDES'] = None
             auction['BIDS'] = bids
         message = {'NONCE':toBase64(nonce), 'AUCTION':auction}
