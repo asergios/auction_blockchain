@@ -95,6 +95,15 @@ def list_english(j, sock, addr, oc, cryptopuzzle, addr_man, db):
         message = {'NONCE':toBase64(nonce), 'LIST':l}
     else:
         auction = {}
+        bids_db = db.get_bids(auction_id)
+        bids = []
+        for bid in bids_db:
+            bids.append({
+                             "PREV_HASH" : bid[2],
+                             "IDENTITY"   : bid[3],
+                             "VALUE"      : bid[4]
+                        })
+
         if len(rows) == 1:
             row = rows[0]
             auction['AUCTION_ID'] = row[0]
@@ -104,7 +113,7 @@ def list_english(j, sock, addr, oc, cryptopuzzle, addr_man, db):
             auction['SUBTYPE'] = row[4]
             auction['ENDING_TIMESTAMP'] = row[7]
             auction['WHO_HIDES'] = None
-            auction['BIDS'] = []
+            auction['BIDS'] = bids
         message = {'NONCE':toBase64(nonce), 'AUCTION':auction}
 
     # TODO: You need the private key for signing

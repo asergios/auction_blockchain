@@ -56,6 +56,11 @@ class RDB:
         cursor.execute('SELECT * FROM bids WHERE auction_id=? ORDER BY sequence DESC', (auction_id,))
         return cursor.fetchone()
 
+    def get_bids(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT * FROM bids WHERE auction_id=? ORDER BY sequence DESC', (auction_id,))
+        return cursor.fetchall()
+
     def last_sequence(self, auction_id):
         ls = -1
 
@@ -79,7 +84,7 @@ class RDB:
         else:
             last_bid = self.get_last_bid(auction_id)
             last_bid_dict = {
-                                "PREV_VALUE" : last_bid[2],
+                                "PREV_HASH" : last_bid[2],
                                 "IDENTITY"   : last_bid[3],
                                 "VALUE"      : last_bid[4]
                             }

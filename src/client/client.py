@@ -421,7 +421,15 @@ def list_auction(arg):
 		auction_info.append( colorize('TYPE:		', 'pink') + auction["TYPE"] )
 		auction_info.append( colorize('SUBTYPE:	', 'pink') + auction["SUBTYPE"] )
 		auction_info.append( colorize('HIDDEN BY:	', 'pink') + auction["WHO_HIDES"] )
-		auction_info.append( colorize('BIDS (NOT YET DEFINED):	', 'pink') + str(auction["BIDS"]) )
+		auction_info.append( colorize('BIDS:	', 'pink') )
+
+		auction_info.append( colorize("============================", 'green') )
+		for bid in auction["BIDS"]:
+			auction_info.append( colorize("IDENTITY: " + bid["IDENTITY"], 'blue') )
+			auction_info.append( colorize("VALUE: " + bid["VALUE"], 'blue') )
+			auction_info.append( colorize("PREVIOUS HASH:" + bid["PREV_HASH"], 'blue') )
+			auction_info.append( colorize("============================", 'green') )
+
 		auction_info.append( colorize('ENDS IN:	', 'pink') )
 		auction_info.append( "======================================================" )
 
