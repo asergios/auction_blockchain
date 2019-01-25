@@ -182,7 +182,7 @@ def create_new_auction(*arg):
 			# English Auction must have hidden identity
 			new_auction['SUBTYPE'] = 2
 			break
-		print(colorize('SubTypes available: \n 	1 - Public Identity\n 	2 - Hidden identity [until end of auction]', 'green'))
+		print(colorize('SubTypes available: \n 	1 - Public Identity\n 	2 - Hidden Identity [until end of auction]', 'green'))
 		try:
 			new_auction['SUBTYPE'] = int(input("SubType: "))
 		except ValueError:
@@ -531,7 +531,7 @@ def make_bid(arg):
 		certificate = encrypt(cipher_key, certificate)
 	# Need to hide value?
 	if (not is_english):
-		value = encrypt(cipher_key, bytes([value]))
+		value = encrypt(cipher_key, value)
 
 	nonce = os.urandom(64)
 	# Ask for CryptoPuzzle
