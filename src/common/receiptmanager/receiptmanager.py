@@ -41,7 +41,7 @@ class ReceiptManager:
 
 		return valid_repo and valid_mana and valid_client
 
-	def save_receipt(self, auction_id, receipt):
+	def save_receipt(self, auction_id, receipt, prev_hash):
 		'''
 			Save Receipt
 		'''
@@ -51,7 +51,7 @@ class ReceiptManager:
 		self.check_dir()
 
 		# Opening File Where Receipt Will Be Stored
-		file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'wb')
+		file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id+'-'+prev_hash, 'wb')
 		# Getting User Password Key
 		pw = self.get_key()
 		# Building HMAC for receipt
@@ -111,7 +111,7 @@ class ReceiptManager:
 			# Ignore pwd file
 			if filename.startswith('.'): continue
 			# Add receipt to receipts list
-			auctions.append(int(filename))
+			auctions.append(int(filename.split("-")[0]))
 
 		return auctions
 
@@ -124,34 +124,32 @@ class ReceiptManager:
 		# Checking existence of user dir
 		self.check_dir()
 
-		# Checking if such receipt exists
-		if os.path.isfile('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id):
-			# Opening receipt file
-			file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'rb')
-			# Getting the key
-			pw = self.get_key()
-			# Decrypting Receipt
-			result = decrypt(pw, file.read())
-			file.close()
+		receipts = []
 
-			# Checking integrity of the receipt
-			if(compare_digest(result[:32], SHA256.new(result[32:]).digest())):
-				receipt = json.loads(result[32:])
-				value = receipt["ONION_2"]["ONION_1"]["ONION_0"]["VALUE"]
-				if hidden_value:
-					secret = fromBase64(receipt["KEY"])
-					return decrypt(secret, fromBase64(value)).decode()
+		for filename in os.listdir('src/common/receiptmanager/receipts/'+self.cc_number):
+			if filename.startswith(auction_id+'-'):
+				# Opening receipt file
+				file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+filename, 'rb')
+				# Getting the key
+				pw = self.get_key()
+				# Decrypting Receipt
+				result = decrypt(pw, file.read())
+				file.close()
+
+				# Checking integrity of the receipt
+				if(compare_digest(result[:32], SHA256.new(result[32:]).digest())):
+					receipt = json.loads(result[32:])
+					value = receipt["ONION_2"]["ONION_1"]["ONION_0"]["VALUE"]
+					if hidden_value:
+						secret = fromBase64(receipt["KEY"])
+						receipts.append((decrypt(secret, fromBase64(value)).decode(), receipt["ONION_2"]["PREV_HASH"]))
+					else:
+						receipts.append((fromBase64(value).decode(), receipt["ONION_2"]["PREV_HASH"]))
 				else:
-					return fromBase64(value).decode()
-			else:
-				print( colorize("ERROR: Corrupted File Or Unauthorized Access", 'red') )
-				input("Press any key to continue...")
-				return None
-		else:
-			print( colorize("ERROR: Receipt Not Found", 'red') )
-			input("Press any key to continue...")
-			return None
+					print( colorize("ERROR: Corrupted File Or Unauthorized Access", 'red') )
+					input("Press any key to continue...")
 
+		return receipts
 
 	def get_key(self):
 		'''

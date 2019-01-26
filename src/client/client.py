@@ -660,7 +660,7 @@ def make_bid(arg):
 		clean(lines=1)
 		server_answer["RECEIPT"]["KEY"] = toBase64(cipher_key)
 		print( colorize( "Receipt received, please type your password to save it.", 'pink' ) )
-		rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"))
+		rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"), server_answer["RECEIPT"]["ONION_2"]["PREV_HASH"])
 		clean(lines=1)
 		input( colorize( "Bid successfully set. Press any key to continue...", 'blue' ) )
 	else:
@@ -767,14 +767,22 @@ def my_bids(*arg):
 	rm = ReceiptManager(cc)
 	participated_auctions = rm.get_participated_auctions()
 
+	if participated_auctions == []:
+		clean(lines = 1)
+		input("You have no history of bids yet. Press any key to continue...")
+		return
+
 	auction_list = list_auction((participated_auctions, True))
 	auctions = []
 	# Build Titles Of Auctions To Be printed
 	for auction in auction_list:
 		title = colorize('[ENGLISH] ', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND] ', 'pink')
-		value = rm.get_receipt_value(str(auction["AUCTION_ID"]), auction["TYPE"] == 2)
-		auctions.append({title + auction["TITLE"] + colorize('\n	Your BID: ' + value + '€', 'red'): (list_auction, (auction["AUCTION_ID"],)) })
-
+		title += auction["TITLE"]
+		bids = rm.get_receipt_value(str(auction["AUCTION_ID"]), auction["TYPE"] == 2)
+		title += colorize('\n	Your BIDS:	' + bids[0][0] + '€	Previous Hash:'+ bids[0][1] +'\n', 'red')
+		for bid in bids[1:]:
+			title += colorize('			' + bid[0] + '€	Previous Hash:'+ bid[1] +'\n', 'red')
+		auctions.append({title: (list_auction, (auction["AUCTION_ID"],)) })
 	auctions.append({ "Exit" : None })
 
 	# Print the menu
