@@ -928,8 +928,6 @@ menu = [
 ]
 
 def main():
-	reclaim(3,True)
-	input("")
 	print_menu(menu)
 
 
