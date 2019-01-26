@@ -489,7 +489,8 @@ def list_auction(arg):
 
 		# Build Titles Of Auctions To Be printed
 		for auction in auction_list:
-			title = colorize('[ENGLISH] ', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND] ', 'pink')
+			title = colorize('[ENGLISH]', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND]', 'pink')
+			title += colorize('[OPEN] ', 'green') if auction["STATUS"] else colorize('[CLOSED] ', 'red')
 			auctions.append({title + auction["TITLE"] : (list_auction, (auction["AUCTION_ID"],)) })
 		auctions.append({ "Exit" : None })
 
@@ -547,10 +548,13 @@ def list_auction(arg):
 
 		# Bulding Menu With Options For The Client
 		menu = []
-		menu.append({"Make Offer" : (make_bid, (auction["AUCTION_ID"], \
-					auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY", \
-					auction["WHO_HIDES"] == "CLIENT"))})
-		menu.append({"Terminate Auction (you must be the owner)" : (terminate_auction, auction_id) })
+		if(auction["STATUS"]):
+			menu.append({"Make Offer" : (make_bid, (auction["AUCTION_ID"], \
+						auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY", \
+						auction["WHO_HIDES"] == "CLIENT"))})
+			menu.append({"Terminate Auction (you must be the owner)" : (terminate_auction, auction_id) })
+		else:
+			menu.append({"Reclaim Prize" : (reclaim, (auction["AUCTION_ID"], auction["TYPE"] == "ENGLISH"))})
 		menu.append({ "Exit" : None })
 
 		# Print Menu

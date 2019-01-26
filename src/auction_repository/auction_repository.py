@@ -93,7 +93,8 @@ def list_auctions(j, sock, addr, oc, cryptopuzzle, addr_man, db):
             l = {
                     "AUCTION_ID" : auction[0],
                     "TITLE" : auction[1],
-                    "TYPE"  : auction[3]
+                    "TYPE"  : auction[3],
+                    "STATUS": auction[10] == 1
                 }
             for_client.append(l)
         message = {'NONCE':toBase64(nonce), 'LIST':for_client}
@@ -120,6 +121,7 @@ def list_auctions(j, sock, addr, oc, cryptopuzzle, addr_man, db):
         auction['SEED'] = row[9]
         auction['WHO_HIDES'] = row[5]
         auction['BIDS'] = bids
+        auction['STATUS'] = row[10] == 1
         message = {'NONCE':toBase64(nonce), 'AUCTION':auction}
 
     # TODO: You need the private key for signing
