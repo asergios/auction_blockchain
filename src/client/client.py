@@ -78,6 +78,99 @@ def wait_for_answer(sock, action):
 	input("Press any key to continue...")
 	return False
 
+def reclaim(auction_id, is_english):
+	'''
+		Reclaim your prize (WIP)
+	'''
+
+	# Scanning user CartaoDeCidadao
+	logging.info("Reading User's Cartao De Cidadao")
+	print( colorize( "Reading Citizen Card, please wait...", 'pink' ) )
+	cc.scan()
+	clean(lines = 1)
+	logging.info("Trying to establishing connection with server")
+
+	# Sending challenge to the server
+	challenge = os.urandom(64)
+	connection = {"ACTION": "CHALLENGE", "CHALLENGE":  toBase64(challenge)  ,\
+	 			  "CERTIFICATE": toBase64(cc.get_certificate_raw()) }
+	sock_repository.send( json.dumps(connection).encode("UTF-8") )
+	logging.info("Sent Challenge To Server: " + json.dumps(connection))
+
+	# Wait for Challenge Response
+	server_answer = wait_for_answer(sock_manager , "CHALLENGE_REPLY")
+	if not server_answer: return
+	logging.info("Received Challenge Response: " + json.dumps(server_answer))
+
+	# Verify server certificate, verify signature of challenge and decode NONCE
+	logging.info("Verifying certificate and server signature of challenge")
+	if not verify_server( server_answer['CERTIFICATE'], challenge, server_answer['CHALLENGE_RESPONSE'] ):
+		logging.warning("Server Verification Failed")
+		print( colorize('Server Validation Failed!', 'red') )
+		input("Press any key to continue...")
+		return
+
+	rm = ReceiptManager(cc)
+	bids = rm.get_receipt_value(str(auction_id), is_english)
+	if bids == []:
+		input( colorize( "You have no bids at this auction. Press any key to continue...", 'red' ) )
+		return
+
+	# Printing existing bids
+	while(True):
+		print( colorize( "Which Bid would you like to reclaim?", 'pink' ) )
+		for bid in bids:
+			print(str(bids.index(bid)+1) + " - "+ colorize(bid[0] + '€', 'red'))
+		choice = input(">> ")
+		if int(choice) <= len(bids) and int(choice) > 0:
+			break
+		else:
+			print( colorize('Invalid Option!', 'red') )
+			clean(lines=len(bids)+3)
+
+	logging.info("Building RECLAIM message")
+	print( colorize( "Sending Request, please wait...", 'pink' ) )
+	chosen_one = bids[int(choice)-1]
+	receipt = json.loads(rm.get_receipt(str(auction_id)+'-'+str(chosen_one[1])))
+	receipt.pop('KEY', None)
+
+	message = {
+					"RECEIPT" : receipt,
+					"NONCE" : server_answer["NONCE"]
+			   }
+
+	outter = {
+					"ACTION" : "RECLAIM",
+					"MESSAGE" : message,
+					"CERTIFICATE" : toBase64(cc.get_certificate_raw()),
+					"SIGNATURE" : toBase64(cc.sign( json.dumps(message).encode('UTF-8') ))
+			}
+
+	logging.info("Sending RECLAIM message to repository: " + json.dumps(outter))
+	sock_repository.send( json.dumps(outter).encode("UTF-8") )
+
+	# Wait for Server Response
+	logging.info("Waiting for server response")
+	server_answer = wait_for_answer(sock_repository, "RECLAIM_REPLY")
+	if not server_answer: return
+	logging.info("Received Server Response: " + json.dumps(server_answer))
+
+	if (server_answer["STATE"] == "OK"):
+		clean(lines=1)
+		logging.info("Prize was reclaimed successfully")
+		print( colorize("Prize successfully reclaimed. Auction Owner will contact you sortly", 'pink') )
+		input("Press any key to continue...")
+	elif (server_answer["STATE"] == "NOT OK"):
+		clean(lines=1)
+		logging.info("Prize reclaim failed : " + server_answer["ERROR"] )
+		print( colorize("ERROR: " + server_answer["ERROR"], 'red') )
+		input("Press any key to continue...")
+	else:
+		clean(lines=1)
+		logging.info("Auction Creating Failed With Unexpected Error ")
+		print( colorize("Something really weird happen, please fill a bug report.", 'red') )
+		input("Press any key to continue...")
+
 def create_new_auction(*arg):
 	'''
 		Creates new auction via auction manager
@@ -835,6 +928,8 @@ menu = [
 ]
 
 def main():
+	reclaim(3,True)
+	input("")
 	print_menu(menu)
 
 

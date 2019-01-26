@@ -63,7 +63,7 @@ class ReceiptManager:
 		file.write(result)
 		file.close()
 
-	def get_receipt(self, auction_id, pw = None):
+	def get_receipt(self, receipt_name, pw = None):
 		'''
 			Get Receipt
 		'''
@@ -73,9 +73,9 @@ class ReceiptManager:
 		self.check_dir()
 
 		# Checking if such receipt exists
-		if os.path.isfile('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id):
+		if os.path.isfile('src/common/receiptmanager/receipts/'+self.cc_number+'/'+receipt_name):
 			# Opening receipt file
-			file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+auction_id, 'rb')
+			file = open('src/common/receiptmanager/receipts/'+self.cc_number+'/'+receipt_name, 'rb')
 			# Getting the key
 			if not pw:
 				pw = self.get_key()
