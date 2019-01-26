@@ -332,13 +332,13 @@ def validate_bid(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     value = onion0['VALUE']
     auction_id = onion0['AUCTION']
 
-    sequence = db.store_bid(auction_id, identity, value)
+    prev_hash = db.store_bid(auction_id, identity, value)
 
     # TODO: You need the private key for signing
     pk = load_file_raw('src/auction_repository/keys/private_key.pem')
     cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'), priv_key = pk)
 
-    onion2 = {'ONION_1': onion1, 'SIGNATURE': data['SIGNATURE'], 'SEQUENCE': sequence}
+    onion2 = {'ONION_1': onion1, 'SIGNATURE': data['SIGNATURE'], 'PREV_HASH': prev_hash}
     signature_repository = cm.sign(json.dumps(onion2).encode('UTF-8'))
     reply = {'ACTION': 'RECEIPT', 'RECEIPT': {"ONION_2" : onion2, 'SIGNATURE': toBase64(signature_repository)}}
     logger.debug('CLIENT REPLY = %s', reply)

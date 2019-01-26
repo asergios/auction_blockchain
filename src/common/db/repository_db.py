@@ -110,7 +110,7 @@ class RDB:
         cursor.execute('INSERT INTO bids(auction_id, sequence, prev_hash, identity, value) VALUES(?,?,?,?,?)',(auction_id, sequence, prev_hash, identity, value))
         self.db.commit()
 
-        return sequence
+        return prev_hash
 
 
     def close(self):

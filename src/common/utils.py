@@ -51,9 +51,13 @@ def print_timer(timestamp, lines):
     while True:
         sys.stdout.write("\033[s")
         seconds = (datetime.datetime.fromtimestamp(timestamp) - datetime.datetime.now()).total_seconds()
-        if seconds <= 0:
-            break
         clean(lines = lines)
+        if seconds <= 0:
+            print(colorize('ENDS IN:        ', 'pink') + colorize('AUCTION ENDED', 'red'))
+            sys.stdout.write("\033[u")
+            sys.stdout.flush()
+            time.sleep(0.5)
+            break
         print(colorize('ENDS IN:        ', 'pink') + str(datetime.timedelta(seconds=seconds)))
         sys.stdout.write("\033[u")
         sys.stdout.flush()
