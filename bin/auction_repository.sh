@@ -10,7 +10,7 @@ if [ ! -f $DB ]; then
   echo -e "Create auction repository db"
   sqlite3 $DB <<EOF
 CREATE TABLE auctions (id INTEGER PRIMARY KEY, title TEXT, desc TEXT, type INTEGER,
-subtype INTEGER, who_hides INTEGER, duration INTEGER, start DATETIME, stop DATETIME, seed TEXT, open INTEGER DEFAULT 1);
+subtype INTEGER, duration INTEGER, start DATETIME, stop DATETIME, seed TEXT, open INTEGER DEFAULT 1);
 CREATE TABLE bids (auction_id INTEGER, sequence INTEGER, prev_hash TEXT, identity TEXT, value TEXT, PRIMARY KEY (auction_id, sequence))
 EOF
 fi

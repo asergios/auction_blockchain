@@ -290,27 +290,6 @@ def create_new_auction(*arg):
 				print( colorize('Please pick one of the available subtypes.', 'red') )
 				clean(lines=5)
 
-	# Who hides the information
-	while True:
-		if new_auction['TYPE'] == 1:
-			# English Auction identity must be hidden by manager
-			new_auction['WHO_HIDES'] = 2
-			break
-		print(colorize('Who Hides The Information: \n 	1 - Client (Bid Validation Processed At The End Of Auction) \n 	2 - Manager (Bid Validation Processed When Sent)', 'green'))
-		try:
-			new_auction['WHO_HIDES'] = int(input("Who Hides: "))
-		except ValueError:
-			print( colorize('Must be a number!', 'red') )
-			clean(lines=5)
-			continue
-		else:
-			if new_auction['WHO_HIDES'] == 1 or new_auction['WHO_HIDES'] == 2:
-				clean(True)
-				break
-			else:
-				print( colorize('Please pick one of the available options.', 'red') )
-				clean(lines=5)
-
 	# Time for Auction expiration (hours)
 	while True:
 		try:
@@ -463,7 +442,6 @@ def list_auction(arg):
 											"DESCRIPTION" : _____,
 											"TYPE" : _____,
 											"SUBTYPE" : ____,
-											"WHO_HIDES": ____,
 											"ENDING_TIMESTAMP" : ____,
 											"BIDS" : []
 										}
@@ -508,7 +486,6 @@ def list_auction(arg):
 		# Translating Type/Subtype/WhoHide in order for user to understand
 		auction["TYPE"] = "ENGLISH" if auction["TYPE"] == 1 else "BLIND"
 		auction["SUBTYPE"] = "PUBLIC IDENTITY" if auction["SUBTYPE"] == 1 else "HIDDEN IDENTITY"
-		auction["WHO_HIDES"] = "CLIENT" if auction["WHO_HIDES"] == 1 else "SERVER"
 
 		# Building Infomation to print
 		auction_info = []
@@ -516,7 +493,6 @@ def list_auction(arg):
 		auction_info.append( colorize('DESCRIPTION:	', 'pink') + auction["DESCRIPTION"] )
 		auction_info.append( colorize('TYPE:		', 'pink') + auction["TYPE"] )
 		auction_info.append( colorize('SUBTYPE:	', 'pink') + auction["SUBTYPE"] )
-		auction_info.append( colorize('HIDDEN BY:	', 'pink') + auction["WHO_HIDES"] )
 		auction_info.append( colorize('SEED:		', 'pink') + auction["SEED"] )
 		auction_info.append( colorize('BIDS:	', 'pink') )
 
@@ -550,8 +526,7 @@ def list_auction(arg):
 		menu = []
 		if(auction["STATUS"]):
 			menu.append({"Make Offer" : (make_bid, (auction["AUCTION_ID"], \
-						auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY", \
-						auction["WHO_HIDES"] == "CLIENT"))})
+						auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY"))})
 			menu.append({"Terminate Auction (you must be the owner)" : (terminate_auction, auction_id) })
 		else:
 			menu.append({"Reclaim Prize" : (reclaim, (auction["AUCTION_ID"], auction["TYPE"] == "ENGLISH"))})
@@ -576,7 +551,6 @@ def make_bid(arg):
 	auction_id = arg[0]
 	is_english = arg[1]
 	hidden_identity = arg[2]
-	client_hides = arg[3]
 
 	# Scanning user CartaoDeCidadao
 	logging.info("Reading User's Cartao De Cidadao")
@@ -616,11 +590,10 @@ def make_bid(arg):
 
 	# Hiding needed values
 	cipher_key = os.urandom(16)
-	# If manager is hidding, import his certificate to encrypt cipher_key
-	if (not client_hides):
-		manager_cert = CertManager.get_cert_by_name('manager.crt')
-		cm = CertManager(manager_cert)
-		hidden_cipher_key = cm.encrypt(cipher_key)
+	# Import his certificate to encrypt cipher_key
+	manager_cert = CertManager.get_cert_by_name('manager.crt')
+	cm = CertManager(manager_cert)
+	hidden_cipher_key = cm.encrypt(cipher_key)
 
 	# Need to hide identity?
 	if (hidden_identity):
@@ -704,9 +677,8 @@ def make_bid(arg):
 				}
 
 	# Key encrypted with manager public_key so he can read identity/value
-	if not client_hides:
-		message["MANAGER_SECRET"] = toBase64(hidden_cipher_key)
-		message["CERTIFICATE"] = toBase64(certificate)
+	message["MANAGER_SECRET"] = toBase64(hidden_cipher_key)
+	message["CERTIFICATE"] = toBase64(certificate)
 
 	# Send Offer
 	logging.info("Sending Bid To Repository")

@@ -104,7 +104,7 @@ def terminate(j, sock, addr, oc, addr_rep, db):
         return False
 
     #TODO rest of this
-    return False 
+    return False
 
 def validate_auction(j, sock, addr, oc, addr_rep, db):
     reply = {'ACTION':'CREATE_REPLY'}
@@ -169,21 +169,6 @@ def validate_auction(j, sock, addr, oc, addr_rep, db):
     if subtype != 1 and subtype != 2:
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID SUBTYPE'
-        logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-        return False
-
-    if 'WHO_HIDES' not in message:
-        reply['STATE'] = 'NOT OK'
-        reply['ERROR'] = 'MISSING WHO_HIDES'
-        logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-        return False
-
-    whohides = message['WHO_HIDES']
-    if whohides != 1 and whohides != 2:
-        reply['STATE'] = 'NOT OK'
-        reply['ERROR'] = 'INVALID WHO_HIDES'
         logger.debug('CLIENT REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False

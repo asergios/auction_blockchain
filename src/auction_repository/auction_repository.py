@@ -66,7 +66,7 @@ def store(j, sock, addr, oc, cryptopuzzle, addr_man, db):
     ## TEMPORARY FIX
     data = json.loads(fromBase64(j['DATA']))
     logger.debug('DATA = %s', data)
-    auction_id = db.store_auction(data['TITLE'], data['DESCRIPTION'], data['TYPE'], data['SUBTYPE'], data['WHO_HIDES'],data['AUCTION_EXPIRES'])
+    auction_id = db.store_auction(data['TITLE'], data['DESCRIPTION'], data['TYPE'], data['SUBTYPE'],data['AUCTION_EXPIRES'])
     nonce = data['NONCE']
     data = {'NONCE':nonce, 'AUCTION_ID':auction_id}
 
@@ -94,7 +94,7 @@ def list_auctions(j, sock, addr, oc, cryptopuzzle, addr_man, db):
                     "AUCTION_ID" : auction[0],
                     "TITLE" : auction[1],
                     "TYPE"  : auction[3],
-                    "STATUS": auction[10] == 1
+                    "STATUS": auction[9] == 1
                 }
             for_client.append(l)
         message = {'NONCE':toBase64(nonce), 'LIST':for_client}
@@ -117,11 +117,10 @@ def list_auctions(j, sock, addr, oc, cryptopuzzle, addr_man, db):
         auction['DESCRIPTION'] = row[2]
         auction['TYPE'] = row[3]
         auction['SUBTYPE'] = row[4]
-        auction['ENDING_TIMESTAMP'] = row[8]
-        auction['SEED'] = row[9]
-        auction['WHO_HIDES'] = row[5]
+        auction['ENDING_TIMESTAMP'] = row[7]
+        auction['SEED'] = row[8]
         auction['BIDS'] = bids
-        auction['STATUS'] = row[10] == 1
+        auction['STATUS'] = row[9] == 1
         message = {'NONCE':toBase64(nonce), 'AUCTION':auction}
 
     # TODO: You need the private key for signing
@@ -272,39 +271,33 @@ def offer(j, sock, addr, oc, cryptopuzzle, addr_man, db):
 
         hidden_value = (auction[3] == 2)
         hidden_identity = (auction[4] == 2)
-        manager_hides = (auction[5] == 2)
-
-        # Se for o manager a esconder ele ja tem de tratar da validacao da bid
-        if manager_hides:
-            # Se isto acontecer o client nao compriu a norma... error
-            if not 'MANAGER_SECRET' in j:
-                reply={'ACTION':'RECEIPT', 'STATE': 'NOT OK', 'ERROR':'AUCTION REQUIREMENTS NOT MET'}
-                logger.debug('CLIENT REPLY = %s', reply)
-                sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
 
-            # TODO: Faltam coisas para o manager validar a bid (argumentos para o codigo dinamico, valor da ultima oferta etc)
-            nonce = toBase64(oc.add(addr))
-            data = {    'MESSAGE':message,
-                        'SIGNATURE': j['SIGNATURE'],
-                        'NONCE':nonce,
-                        'HIDDEN_VALUE': hidden_value,
-                        'HIDDEN_IDENTITY' : hidden_identity,
-                        'MANAGER_SECRET' : j['MANAGER_SECRET'],
-                        'CERTIFICATE' : j['CERTIFICATE']}
+        # Se isto acontecer o client nao compriu a norma... error
+        if not 'MANAGER_SECRET' in j:
+            reply={'ACTION':'RECEIPT', 'STATE': 'NOT OK', 'ERROR':'AUCTION REQUIREMENTS NOT MET'}
+            logger.debug('CLIENT REPLY = %s', reply)
+            sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
 
-            # TODO: a message é demasiado longa para ser cifrada com uma chave assimetrica / da erro
-            #request = {'ACTION':'VALIDATE_BID', 'DATA':toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
-            #### TEMPORARY FIX
-            # Na minha opiniao, devias simplesmente assinar a mensagem mas ve como queres
-            request = {'ACTION':'VALIDATE_BID', 'DATA': data }
-            logger.debug('MANAGER REQUEST = %s', request)
-            sock.sendto(json.dumps(request).encode('UTF-8'), addr_man)
 
-        # TODO: Armazenar caso seja CLIENT HIDES
-        # Senao, o repositorio ja pode armazenar, a validacao é feita ao fim
-        else:
-            pass
+        # TODO: Faltam coisas para o manager validar a bid (argumentos para o codigo dinamico, valor da ultima oferta etc)
+        nonce = toBase64(oc.add(addr))
+        data = {    'MESSAGE':message,
+                    'SIGNATURE': j['SIGNATURE'],
+                    'NONCE':nonce,
+                    'HIDDEN_VALUE': hidden_value,
+                    'HIDDEN_IDENTITY' : hidden_identity,
+                    'MANAGER_SECRET' : j['MANAGER_SECRET'],
+                    'CERTIFICATE' : j['CERTIFICATE']}
+
+        # TODO: a message é demasiado longa para ser cifrada com uma chave assimetrica / da erro
+        #request = {'ACTION':'VALIDATE_BID', 'DATA':toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
+        #### TEMPORARY FIX
+        # Na minha opiniao, devias simplesmente assinar a mensagem mas ve como queres
+        request = {'ACTION':'VALIDATE_BID', 'DATA': data }
+        logger.debug('MANAGER REQUEST = %s', request)
+        sock.sendto(json.dumps(request).encode('UTF-8'), addr_man)
+
     else:
         reply={'ACTION':'RECEIPT', 'STATE': 'NOT OK', 'ERROR':'INVALID OR LATE CRYPTOPUZZLE'}
         logger.debug('CLIENT REPLY = %s', reply)
