@@ -467,7 +467,7 @@ def list_auction(arg):
 
 		# Build Titles Of Auctions To Be printed
 		for auction in auction_list:
-			title = colorize('[ENGLISH]', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND]', 'pink')
+			title = colorize('[ENGLISH]	', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND]	', 'pink')
 			title += colorize('[OPEN] ', 'green') if auction["STATUS"] else colorize('[CLOSED] ', 'red')
 			auctions.append({title + auction["TITLE"] : (list_auction, (auction["AUCTION_ID"],)) })
 		auctions.append({ "Exit" : None })
@@ -497,17 +497,28 @@ def list_auction(arg):
 		auction_info.append( colorize('BIDS:	', 'pink') )
 
 		auction_info.append( colorize("============================", 'green') )
+
 		for bid in auction["BIDS"]:
 			if auction["SUBTYPE"] == "HIDDEN IDENTITY":
-				auction_info.append( colorize("IDENTITY: " + bid["IDENTITY"], 'blue') )
+				if not auction["STATUS"]:
+					identity = decrypt(fromBase64(bid["KEY"]), fromBase64(bid["IDENTITY"]).decode())
+					auction_info.append( colorize("IDENTITY: " + identity + "	[" + bid["IDENTITY"] + "]", 'blue') )
+				else:
+					auction_info.append( colorize("IDENTITY: " + bid["IDENTITY"], 'blue') )
 			else:
 				auction_info.append( colorize("IDENTITY: " + fromBase64(bid["IDENTITY"]).decode(), 'blue') )
 
 			if auction["TYPE"] == "ENGLISH":
-				auction_info.append( colorize("VALUE (EUR): " + fromBase64(bid["VALUE"]).decode(), 'blue') )
+				auction_info.append( colorize("VALUE: " + fromBase64(bid["VALUE"]).decode() + "€", 'blue') )
 			else:
-				auction_info.append( colorize("VALUE (EUR): " + bid["VALUE"], 'blue') )
+				if not auction["STATUS"]:
+					value = decrypt(fromBase64(bid["KEY"]), fromBase64(bid["VALUE"]).decode())
+					auction_info.append( colorize("VALUE: " + value + "€	[" + bid["VALUE"] + "]", 'blue') )
+				else:
+					auction_info.append( colorize("VALUE: " + bid["VALUE"], 'blue') )
 
+			if not auction["STATUS"]:
+				auction_info.append( colorize("KEY:" + fromBase64(bid["KEY"]), 'blue') )
 			auction_info.append( colorize("PREVIOUS HASH:" + bid["PREV_HASH"], 'blue') )
 			auction_info.append( colorize("============================", 'green') )
 
@@ -516,7 +527,7 @@ def list_auction(arg):
 			if are_bids_valid:
 				auction_info.append( colorize("BLOCKCHAIN:	", 'pink') + "VALID")
 			else:
-				auction_info.append( colorize("BLOCKCHAIN:	", 'red') + "INVALID (contact admin please)")
+				auction_info.append( colorize("BLOCKCHAIN:	", 'pink') + colorize("INVALID (contact admin please)", 'red'))
 
 		auction_info.append( colorize('ENDS IN:	', 'pink') )
 		auction_info.append( "======================================================" )
@@ -884,7 +895,6 @@ def print_menu(menu, info_to_print = None, timestamp = None):
 			p.start()
 			choice = input(">> ")
 			p.terminate()
-			sys.stdout.write("\033[4B")
 		else:
 			choice = input(">> ")
 
