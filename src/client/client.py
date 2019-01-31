@@ -293,7 +293,7 @@ def create_new_auction(*arg):
 	# Time for Auction expiration (hours)
 	while True:
 		try:
-			new_auction['AUCTION_EXPIRES'] = int(input("Expiration time for Auction (hours): "))
+			new_auction['AUCTION_EXPIRES'] = int(input("Expiration time for Auction (seconds): "))
 		except ValueError:
 			print( colorize('Expiration must be a number!', 'red') )
 			clean()

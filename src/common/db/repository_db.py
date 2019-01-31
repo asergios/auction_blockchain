@@ -6,21 +6,21 @@ import json
 import os
 from datetime import datetime, timedelta
 from Crypto.Hash import SHA256
-from ..certmanager import CertManager
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger('ADB')
+logging.basicConfig(level=logging.DEBUG,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('RDB')
 logger.setLevel(logging.DEBUG)
 
 
 class RDB:
     def __init__(self, path='src/auction_repository/repository.db'):
-        self.db = sqlite3.connect(path)
+        self.db = sqlite3.connect(path, detect_types=sqlite3.PARSE_DECLTYPES)
 
     def store_auction(self, title, desc, atype, subtype, duration):
         start = datetime.now()
-        stop = (start + timedelta(hours=duration)).timestamp() if duration > 0 else 0
+        stop = (start + timedelta(seconds=duration)) if duration > 0 else 0
         cursor = self.db.cursor()
         # Seed para a primeira bid usar na hash (blockchain)
         seed = os.urandom(32).hex()
@@ -28,90 +28,83 @@ class RDB:
                 (title, desc, atype, subtype, duration, start, stop, seed))
         rv = cursor.lastrowid
         self.db.commit()
-        return rv
+        return rv 
 
-    # Not being used, just here as backup
-    '''
-    def list_english(self, auction_id=None):
+    def list_auctions(self):
         cursor = self.db.cursor()
-        if auction_id is None:
-            cursor.execute('SELECT * FROM auctions WHERE type=1 AND open=1')
-        else:
-            cursor.execute('SELECT * FROM auctions WHERE type=1 AND open=1 AND id=?', (auction_id,))
+        cursor.execute('SELECT * FROM auctions')
         return cursor.fetchall()
 
-    def list_blind(self, auction_id=None):
+    def get_auctions(self, auction_ids):
         cursor = self.db.cursor()
-        if auction_id is None:
-            cursor.execute('SELECT * FROM auctions WHERE type=2 AND open=1')
-        else:
-            cursor.execute('SELECT * FROM auctions WHERE type=2 AND open=1 AND id=?', (auction_id,))
-        return cursor.fetchall()
-    '''
-
-    def list_global(self, auction_id):
-        cursor = self.db.cursor()
-        if not auction_id is None:
-            placeholder= '?'
-            placeholders= ', '.join(placeholder for id in auction_id)
-            query= 'SELECT * FROM auctions WHERE id IN (%s)' % placeholders
-            cursor.execute(query, auction_id)
-        else:
-            query= 'SELECT * FROM auctions'
-            cursor.execute(query)
+        placeholder= '?'
+        placeholders= ', '.join(placeholder for id in auction_ids)
+        query = 'SELECT * FROM auctions WHERE id IN (%s)' % placeholders
+        cursor.execute(query, auction_ids)
         return cursor.fetchall()
 
-    def get_auction(self, auction_id):
+    def get_bid(self, auction_id, sequence):
         cursor = self.db.cursor()
-        cursor.execute('SELECT * FROM auctions WHERE open=1 AND id=?', (auction_id,))
-        return cursor.fetchone()
-
-    def get_last_bid(self, auction_id):
-        cursor = self.db.cursor()
-        cursor.execute('SELECT * FROM bids WHERE auction_id=? ORDER BY sequence DESC', (auction_id,))
+        cursor.execute('SELECT * FROM bids WHERE auction_id = ? AND sequence = ?', (auction_id, sequence))
         return cursor.fetchone()
 
     def get_bids(self, auction_id):
         cursor = self.db.cursor()
-        cursor.execute('SELECT * FROM bids WHERE auction_id=? ORDER BY sequence DESC', (auction_id,))
+        cursor.execute('SELECT * FROM bids WHERE auction_id = ? ORDER BY sequence DESC', (auction_id,))
         return cursor.fetchall()
 
-    def last_sequence(self, auction_id):
+    def get_last_sequence(self, auction_id):
         ls = -1
 
         cursor = self.db.cursor()
-        cursor.execute('SELECT sequence FROM bids WHERE auction_id=? ORDER BY sequence DESC', (auction_id,))
-        rows = cursor.fetchall()
+        cursor.execute('SELECT sequence FROM bids WHERE auction_id = ? ORDER BY sequence DESC', (auction_id,))
+        row = cursor.fetchone()
 
-        if len(rows) > 0:
-            ls = rows[0][0]
+        if row is not None:
+            ls = row[0]
 
         return ls
 
-    def store_bid(self, auction_id, identity, value):
-        last_bid = self.get_last_bid(auction_id)
+    def get_last_bid(self, auction_id):
+        s = self.get_last_sequence(auction_id)
+        if s >= 0:
+            return self.get_bid(auction_id, s)
+        return None
 
-        # se nao existe uma bid anterior
-        if not last_bid:
-            prev_hash = self.get_auction(auction_id)[8]
-            sequence = 0
-        # se existe bid anterior
+    def close_auctions(self):
+        now = datetime.now()
+        cursor = self.db.cursor()
+        cursor.execute('SELECT * FROM auctions WHERE open = 1 AND duration > 0')
+        rows = cursor.fetchall()
+
+        for row in rows:
+            if now >= row[7]:
+                cursor.execute('UPDATE auctions SET open = 0 WHERE id = ?', (row[0],))
+        self.db.commit()
+
+    def close_auction(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('UPDATE auctions SET open = 0 WHERE id = ?', (auction_id,))
+        self.db.commit()
+    
+    def store_bid(self, auction_id, identity, value):
+        ls = self.get_last_sequence(auction_id)
+
+        sequence = 0
+        if ls < 0:
+            prev_hash = self.get_auctions([auction_id])[0][8]
         else:
-            last_bid = self.get_last_bid(auction_id)
-            last_bid_dict = {
-                                "PREV_HASH" : last_bid[2],
-                                "IDENTITY"   : last_bid[3],
-                                "VALUE"      : last_bid[4]
-                            }
+            last_bid = self.get_bid(auction_id, ls)
+            last_bid_dict = {'PREV_HASH': last_bid[2], 'IDENTITY': last_bid[3],
+                    'VALUE': last_bid[4]}
             prev_hash = SHA256.new(data=json.dumps(last_bid_dict).encode("UTF-8")).hexdigest()
-            sequence = last_bid[1] + 1
+            sequence = ls + 1
 
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO bids(auction_id, sequence, prev_hash, identity, value) VALUES(?,?,?,?,?)',(auction_id, sequence, prev_hash, identity, value))
         self.db.commit()
-
-        return prev_hash
-
+        
+        return (prev_hash, sequence)
 
     def close(self):
         self.db.commit()

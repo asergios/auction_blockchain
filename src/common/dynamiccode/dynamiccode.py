@@ -1,6 +1,13 @@
 import sys
+import logging
 from RestrictedPython import compile_restricted
 from RestrictedPython import safe_builtins
+
+
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger('DC')
+logger.setLevel(logging.DEBUG)
+
 
 class DynamicCode:
 
@@ -9,7 +16,7 @@ class DynamicCode:
         '''
             Runs dynamic code with the given values, returns boolean result
         '''
-
+        
         result = DynamicCode.run(identity, value, times, prev_value, code)
         return True if result[0] and result[1] else False
 
@@ -31,6 +38,8 @@ class DynamicCode:
         '''
             Runs code on safe sandbox
         '''
+
+        logger.debug('%d %d %d %d', identity, value, times, prev_value)
 
         func = "def test(identity, value, times, prev_value): \n"
         end = "r = test(%d, %d, %d, %d)" % (identity, value, times, prev_value)

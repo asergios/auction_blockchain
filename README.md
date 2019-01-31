@@ -23,6 +23,22 @@ Root
 | cc         | **TEXT (PK)**    |
 | auction_id | **INTEGER (PK)** |
 
+#### Tabela para armazenar as chaves dos clientes (por bid)
+
+|  Columns   |         Types       |
+|------------|---------------------|
+| auction_id | **INTEGER (PK/FK)** |
+| sequence   | **INTEGER (PK)**    |
+| identity   | TEXT                |
+| secret     | TEXT                |
+
+#### Tabela para armazenar código dinamico 
+
+|  Columns   |         Types       |
+|------------|---------------------|
+| auction_id | **INTEGER (PK/FK)** |
+| code       | TEXT                |
+
 ### Auction Repository
 
 #### Tabela para os leilões
@@ -35,10 +51,9 @@ Root
 | type     | INTEGER          |
 | subtype  | INTEGER          |
 | duration | INTEGER          |
-| start    | DATETIME         |
-| stop     | DATETIME         |
-| expires  | INTEGER          |
-| blimit   | INTEGER          |
+| start    | TIMESTAMP        |
+| stop     | TIMESTAMP        |
+| seed     | TEXT             |
 | open     | INTEGER (1)      |
 
 #### Tabela para bids
@@ -47,7 +62,8 @@ Root
 |-------------|------------------|
 | auction_id  | **INTEGER (PK)** |
 | sequence    | **INTEGER (PK)** |
-| certificate | TEXT             |
+| prev_hash   | TEXT             |
+| identity    | TEXT             |
 | value       | TEXT             |
 
 ## Pré-requesitos

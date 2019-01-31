@@ -9,14 +9,32 @@ logger = logging.getLogger('RDB')
 logger.setLevel(logging.DEBUG)
 
 
-class ADB:
+class MDB:
     def __init__(self, path='src/auction_manager/manager.db'):
         self.db = sqlite3.connect(path)
 
-    def store_user_auction(self, user_cc, auction_id):
-        cursor = self.db.cursor()
+    def store_auction(self, user_cc, auction_id, code=None):
+        cursor = self.db.cursor()        
         cursor.execute('INSERT INTO auctions(cc, auction_id) VALUES (?,?)', (user_cc, auction_id))
+        if code is not None:
+            cursor.execute('INSERT INTO codes(auction_id, code) VALUES (?,?)', (auction_id, code))
         self.db.commit()
+
+    def store_secret(self, auction_id, identity, secret):
+        cursor = self.db.cursor()
+        cursor.execute('INSERT INTO bids(auction_id, identity, secret) VALUES (?,?,?)', (auction_id, identity, secret))
+        self.db.commit()
+
+    def times(self, auction_id, identity):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT COUNT(*) FROM bids WHERE auction_id = ? AND identity = ?', (auction_id, identity))
+        rv = cursor.fetchone()
+        return rv[0]
+
+    def get_code(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT code FROM codes WHERE auction_id = ?', (auction_id,))
+        return cursor.fetchone()
 
     def get_owner(self, auction_id):
         cursor = self.db.cursor()

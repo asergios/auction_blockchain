@@ -1,6 +1,9 @@
 import hashlib
 import os
+import json
 from Crypto.Cipher import AES
+from ..utils import fromBase64, toBase64
+from ..certmanager import CertManager
 
 def encrypt(pwd, message):
 	# Convert message to bytearray
@@ -49,3 +52,21 @@ def decrypt(pwd, cipher):
 def pad(data, bLen):
 	# Adds padding to block
 	return data + bytearray((bLen - len(data) % bLen) * chr(bLen - len(data) % bLen),'UTF-8')
+
+
+# Helper function to communicate with the servers
+# Hybrid approach
+def server_encrypt(action, data, cert):
+    pwd = os.urandom(16)
+    cm = CertManager(cert = cert)
+    encrypted_pwd = cm.encrypt(pwd)
+    encrypted_data = encrypt(pwd, json.dumps(data).encode('UTF-8'))
+    msg = {'ACTION': action, 'EPWD': toBase64(encrypted_pwd), 'DATA':  toBase64(encrypted_data)}
+    return msg
+
+
+def server_decrypt(j, cert, pk):
+    cm = CertManager(cert = cert, priv_key = pk)
+    pwd = cm.decrypt(fromBase64(j['EPWD']))
+    data = decrypt(pwd, fromBase64(j['DATA']))
+    return data

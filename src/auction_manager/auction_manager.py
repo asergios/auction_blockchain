@@ -10,9 +10,11 @@ import signal
 from functools import partial
 from ipaddress import ip_address
 from ..common.utils import check_port, load_file_raw, OpenConnections, toBase64, fromBase64
-from ..common.db.manager_db import ADB
+from ..common.cryptmanager import server_encrypt, server_decrypt
+from ..common.db.manager_db import MDB
 from ..common.certmanager import CertManager
 from ..common.cryptmanager import decrypt
+from ..common.dynamiccode import DynamicCode
 
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -29,37 +31,39 @@ def signal_handler(addr, signal, frame):
 def main(args):
     addr = (str(args.ip_am), args.port_am)
     addr_rep = (str(args.ip_ar), args.port_ar)
+    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
     oc = OpenConnections()
-    db = ADB()
+    db = MDB()
 
     signal.signal(signal.SIGINT, partial(signal_handler, addr))
 
-    mActions = {'CREATE':validate_auction,
-                'CHALLENGE': challenge,
-                'STORE_REPLY': store,
-                'VALIDATE_BID': validate_bid,
-                'TERMINATE' : terminate,
-                'EXIT': exit}
+    # switch case para tratar das mensagens
+    mActions = {'CHALLENGE': challenge,
+            'CREATE':validate_auction,
+            'STORE_REPLY': store,
+            'STORE_SECRET': store_secret,
+            'VALIDATE_BID': validate_bid,
+            'VALIDATE_RECLAIM': validate_reclaim,
+            'TERMINATE' : terminate,
+            'TERMINATE_AUCTION_REPLY': terminate_reply,
+            'EXIT': exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
 
     logger.info('Auction Manager running...')
     done = False
     while not done:
-        data, addr = sock.recvfrom(4096)
+        data, addr = sock.recvfrom(8192)
         j = json.loads(data)
         logger.debug('JSON = %s', j)
-        done = mActions[j['ACTION']](j, sock, addr, oc, addr_rep, db)
+        done = mActions[j['ACTION']](j, sock, addr, pk, oc, addr_rep, db)
 
 
-def challenge(j, sock, addr, oc, addr_rep, db):
+def challenge(j, sock, addr, pk, oc, addr_rep, db):
     challenge = fromBase64(j['CHALLENGE'])
     certificate = fromBase64(j['CERTIFICATE'])
 
-    # TODO: You need the private key for signing
-    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
     cert = CertManager.get_cert_by_name('manager.crt')
-    ###
     cm = CertManager(cert = cert, priv_key=pk)
     cr = cm.sign(challenge)
 
@@ -73,13 +77,12 @@ def challenge(j, sock, addr, oc, addr_rep, db):
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
     return False
 
-def terminate(j, sock, addr, oc, addr_rep, db):
-    reply = {'ACTION':'TERMINATE_REPLY'}
-
+def terminate(j, sock, addr, pk, oc, addr_rep, db):
     s = fromBase64(j['SIGNATURE'])
     message = j['MESSAGE']
     nonce = fromBase64(message['NONCE'])
     cm = CertManager(cert = oc.pop(nonce))
+    reply = {'ACTION':'TERMINATE_REPLY'}
 
     if not cm.verify_certificate():
         reply['STATE'] = 'NOT OK'
@@ -96,17 +99,38 @@ def terminate(j, sock, addr, oc, addr_rep, db):
         return False
 
     # Verify if request comes from owner
-    if db.get_owner(message["AUCTION_ID"]) != cm.get_identity()[1]:
+    if db.get_owner(message['AUCTION_ID']) != cm.get_identity()[1]:
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'You are not the owner of this auction.'
         logger.debug('CLIENT REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    #TODO rest of this
+    nonce = oc.add(addr)
+    cert = CertManager.get_cert_by_name('repository.crt')
+    data = {'NONCE': toBase64(nonce), 'AUCTION_ID': message['AUCTION_ID']}
+    request = server_encrypt('TERMINATE_AUCTION', data, cert)
+    logger.debug('REPOSITORY REQUEST = %s', request)
+    sock.sendto(json.dumps(request).encode('UTF-8'), addr_rep)
     return False
 
-def validate_auction(j, sock, addr, oc, addr_rep, db):
+
+def terminate_reply(j, sock, addr, pk, oc, addr_rep, db):
+    cert = CertManager.get_cert_by_name('manager.crt')
+    data = json.loads(server_decrypt(j, cert, pk))
+    logger.debug('DATA = %s', data)
+
+    nonce = fromBase64(data['NONCE'])
+    addr_client = oc.pop(nonce)
+
+    reply = {'ACTION': 'TERMINATE_REPLY', 'STATE': 'OK'}
+    logger.debug('CLIENT REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr_client)
+
+    return False
+
+
+def validate_auction(j, sock, addr, pk, oc, addr_rep, db):
     reply = {'ACTION':'CREATE_REPLY'}
 
     s = fromBase64(j['SIGNATURE'])
@@ -188,102 +212,206 @@ def validate_auction(j, sock, addr, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    nonce = oc.add((cm.get_identity()[1], addr))
+    code = None
+    if 'CODE' in message:
+        code = message.pop('CODE')
+        result, msg = DynamicCode.check_code(code)
+        if not result:
+            reply['STATE'] = 'NOT OK'
+            reply['ERROR'] = msg
+            logger.debug('CLIENT REPLY = %s', reply)
+            sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+            return False
+
+    nonce = oc.add((cm.get_identity()[1], addr, code))
     message['ACTION'] = 'STORE'
     message['NONCE'] = toBase64(nonce)
-    cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-    # TODO: PLAINTEXT IS TOO LONG. Nao podes usar chave assimetrica
-    #request = {'ACTION':'STORE', 'DATA': toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
-    # TEMPORARY FIX
-    request = {'ACTION':'STORE', 'DATA': toBase64(json.dumps(message).encode('UTF-8'))}
+    cert = CertManager.get_cert_by_name('repository.crt')
+    request = server_encrypt('STORE', message, cert)
     logger.debug("REPOSITORY STORE = %s", request)
     sock.sendto(json.dumps(request).encode('UTF-8'), addr_rep)
     return False
 
 
-def store(j, sock, addr, oc, addr_rep, db):
-    cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'))
-    #data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
-    ## TEMPORARY FIX
-    data = json.loads(fromBase64(j['DATA']))
+def store(j, sock, addr, pk, oc, addr_rep, db):
+    cert = CertManager.get_cert_by_name('manager.crt')
+    data = json.loads(server_decrypt(j, cert, pk))
     logger.debug('DATA = %s', data)
     nonce = fromBase64(data['NONCE'])
     auction_id = data['AUCTION_ID']
-    user_cc, user_addr = oc.pop(nonce)
-    db.store_user_auction(user_cc, auction_id)
+    user_cc, user_addr, code = oc.pop(nonce)
+    db.store_auction(user_cc, auction_id, code)
     reply = {'ACTION': 'CREATE_REPLY', 'STATE':'OK'}
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), user_addr)
     return False
 
-def validate_bid(j, sock, addr, oc, addr_rep, db):
-    # TODO: You need the private key for decrypting the MANAGER_SECRET
-    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
-    cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'), priv_key=pk)
-    #data = json.loads(cm.decrypt(fromBase64(j['DATA'])))
-    ### TEMPORARY FIX
-    data = j['DATA']
+
+def validate_reclaim(j, sock, addr, pk, oc, addr_rep, db):
+    cert = CertManager.get_cert_by_name('manager.crt')
+    data = json.loads(server_decrypt(j, cert, pk))
     logger.debug('DATA = %s', data)
+
+    cm = CertManager(cert = cert, priv_key = pk)
+    certificate = fromBase64(data['CERTIFICATE'])
+    nonce = data['NONCE']
+
+    onion1 = data['ONION_1']
+    s = fromBase64(data['SIGNATURE'])
+
+    if not cm.verify_signature(s, json.dumps(onion1).encode('UTF-8')):
+        data = {'STATE': 'NOT OK', 'ERROR': 'INVALID SIGNATURE (ONION 1)', 'NONCE': nonce}
+        cert = CertManager.get_cert_by_name('repository.crt')
+        reply = server_encrypt('VALIDATE_RECLAIM_REPLY', data, cert)
+        logger.debug('REPOSITORY REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+
+    onion0 = onion1['ONION_0']
+    s = fromBase64(onion1['SIGNATURE'])
+
+    cm = CertManager(cert = data['CERTIFICATE'])
+
+    if not cm.verify_signature(s, json.dumps(onion0).encode('UTF-8')):
+        data = {'STATE': 'NOT OK', 'ERROR': 'INVALID SIGNATURE (ONION 0)', 'NONCE': nonce}
+        cert = CertManager.get_cert_by_name('repository.crt')
+        reply = server_encrypt('VALIDATE_RECLAIM_REPLY', data, cert)
+        logger.debug('REPOSITORY REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+
+    data = {'AUCTION_ID': int(ONION_0['AUCTION']), 'STATE': 'OK', 'NONCE': nonce}
+    cert = CertManager.get_cert_by_name('repository.crt')
+    reply = server_encrypt('VALIDATE_RECLAIM_REPLY', data, cert)
+    logger.debug('REPOSITORY REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+    return False
+
+
+def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
+    cert = CertManager.get_cert_by_name('manager.crt')
+    data = json.loads(server_decrypt(j, cert, pk))
+    logger.debug('DATA = %s', data)
+
+    cm = CertManager(cert = cert, priv_key = pk)
 
     nonce = data['NONCE']
     message = data['MESSAGE']
     signature = data['SIGNATURE']
     hidden_value = data['HIDDEN_VALUE']
     hidden_identity = data['HIDDEN_IDENTITY']
-    identity = data['MESSAGE']['IDENTITY']
-    value = data['MESSAGE']['VALUE']
+    identity = fromBase64(data['MESSAGE']['IDENTITY'])
+    value = fromBase64(data['MESSAGE']['VALUE'])
     certificate = fromBase64(data['CERTIFICATE'])
     message = data['MESSAGE']
+    auction_id = int(message['AUCTION'])
+    if data['LAST_BID'] is not None:
+        las_bid_sequence = data['LAST_BID']['SEQUENCE']
+        last_bid_value = fromBase64(data['LAST_BID']['VALUE'])
+    else:
+        last_bid_value = 0
     secret = cm.decrypt(fromBase64(data['MANAGER_SECRET']))
 
     if hidden_identity:
         certificate = decrypt(secret, certificate)
-        identity = decrypt(secret, fromBase64(identity))
+        identity = int(decrypt(secret, identity))
+    else:
+        identity = int(identity)
+    
     if hidden_value:
-        value = decrypt(secret, fromBase64(value))
+        value = decrypt(secret, value)
+        if last_bid_value is not None:
+            last_bid_secret = db.get_secret(auction_id, las_bid_sequence)
+            last_bid_value = decrypt(last_bid_secret, last_bid_value)
+    else:
+        value = int(value)
+        if last_bid_value is not None:
+            last_bid_value = int(last_bid_value)
 
     cm = CertManager(cert = certificate)
 
     if not cm.verify_certificate():
-        data = {'STATE': 'NOT OK', 'ERROR': 'INVALID SIGNATURE', 'NONCE': nonce}
-        cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-        reply = {'ACTION': 'VALIDATE_BID_REPLY',
-                'DATA': toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
+        data = {'STATE': 'NOT OK', 'ERROR': 'INVALID CERTIFICATE', 'NONCE': nonce}
+        cert = CertManager.get_cert_by_name('repository.crt')
+        reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
         logger.debug('REPOSITORY REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
-
 
     if not cm.verify_signature(fromBase64(signature), json.dumps(message).encode('UTF-8')):
         data = {'STATE': 'NOT OK', 'ERROR': 'INVALID SIGNATURE', 'NONCE': nonce}
-        cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-        reply = {'ACTION': 'VALIDATE_BID_REPLY',
-                'DATA': toBase64(cm.encrypt(json.dumps(message).encode('UTF-8')))}
+        cert = CertManager.get_cert_by_name('repository.crt')
+        reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
         logger.debug('REPOSITORY REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    # TODO: You need the private key for signing
-    pk = load_file_raw('src/auction_manager/keys/private_key.pem')
+    # TODO: Check this. As it stands the last sequence will always be the winner of the auction 
+    # check value (greater than previous)
+    if value <= last_bid_value:
+        logger.debug('INVALID VALUE %d %d', value, last_bid_value)
+        data = {'STATE': 'NOT OK', 'ERROR': 'INVALID VALUE', 'NONCE': nonce}
+        cert = CertManager.get_cert_by_name('repository.crt')
+        reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
+        logger.debug('REPOSITORY REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+    
+    # Check dynamic code
+    code = db.get_code(auction_id)
+    # TODO: O cliente passa a guarda a identity ao lado da chave para poder contar
+    times = db.times(auction_id, identity)
+    if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
+        data = {'STATE': 'NOT OK',
+                'ERROR': 'INVALID VALIDATION DYNAMIC CODE', 'NONCE': nonce}
+        cert = CertManager.get_cert_by_name('repository.crt')
+        reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
+        logger.debug('REPOSITORY REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
+
     cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'), priv_key = pk)
-    # @Catarina Nao podes alterar os valores dados pelo client, senao a assinatura ja nao sera valida
-    # MAS PRECISAS DE GUARDAR O MANAGER_SECRET
-    #if 'MANAGER_SECRET' in data:
-        # @Catarina Nao podes alterar os valores dados pelo client, senao a assinatura ja nao sera valida
-        #message['CERTIFICATE'] = toBase64(cm.encrypt(certificate))
-        #message['VALUE'] = toBase64(cm.encrypt(value))
     onion = {'ONION_0': message, 'SIGNATURE': signature}
-    data = {'ONION_1': onion, 'SIGNATURE': toBase64(cm.sign(json.dumps(onion).encode('UTF-8'))),'NONCE': nonce, 'STATE': 'OK'}
-    cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'))
-    #reply = {'ACTION': 'VALIDATE_BID_REPLY', 'DATA': toBase64(cm.encrypt(json.dumps(data).encode('UTF-8')))}
-    ### TEMPORARY FIX
-    reply = {'ACTION': 'VALIDATE_BID_REPLY', 'DATA': toBase64(json.dumps(data).encode('UTF-8'))}
+    data = {'ONION_1': onion,
+            'SIGNATURE': toBase64(cm.sign(json.dumps(onion).encode('UTF-8'))),
+            'NONCE': nonce, 'STATE': 'OK'}
+    
+    cert = CertManager.get_cert_by_name('repository.crt')
+    reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
     logger.debug('REPOSITORY REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
     return False
 
 
-def exit(j, sock, addr, oc, addr_rep, db):
+def store_secret(j, sock, addr, pk, oc, addr_rep, db):
+    cert = CertManager.get_cert_by_name('manager.crt')
+    data = json.loads(server_decrypt(j, cert, pk))
+    logger.debug('DATA = %s', data)
+
+    cm = CertManager(cert = cert, priv_key = pk)
+    nonce = data['NONCE']
+    auction_id = data['AUCTION_ID']
+    secret = cm.decrypt(fromBase64(data['SECRET']))
+    hidden_identity = data['HIDDEN_IDENTITY']
+    identity = fromBase64(data['IDENTITY'])
+    certificate = fromBase64(data['CERTIFICATE'])
+    
+    if hidden_identity:
+        certificate = decrypt(secret, certificate)
+        identity = decrypt(secret, identity)
+    else:
+        identity = int(identity)
+
+    db.store_secret(auction_id, secret, identity)
+    
+    data = {'STATE': 'OK', 'NONCE': nonce}
+    cert = CertManager.get_cert_by_name('repository.crt')
+    reply = server_encrypt('STORE_SECRET_REPLY', data, cert)
+    logger.debug('REPOSITORY REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+    return False
+
+
+def exit(j, sock, addr, pk, oc, addr_rep, db):
     logger.debug("EXIT")
     db.close()
     return True
