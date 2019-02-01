@@ -10,7 +10,7 @@ if [ ! -f $DB ]; then
   echo -e "Create auction manager db"
   sqlite3 $DB <<EOF
 CREATE TABLE auctions(cc TEXT, auction_id INTEGER, PRIMARY KEY (cc, auction_id));
-CREATE TABLE bids(auction_id INTEGER, sequence INTEGER, identity, TEXT, secret TEXT, PRIMARY KEY (auction_id, sequence), FOREIGN KEY (auction_id) REFERENCES auctions(auction_id));
+CREATE TABLE bids(auction_id INTEGER, sequence INTEGER, identity TEXT, secret TEXT, PRIMARY KEY (auction_id, sequence), FOREIGN KEY (auction_id) REFERENCES auctions(auction_id));
 CREATE TABLE codes(auction_id INTEGER PRIMARY KEY, code TEXT, FOREIGN KEY (auction_id) REFERENCES auctions(auction_id));
 EOF
 fi

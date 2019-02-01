@@ -304,29 +304,31 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
     certificate = fromBase64(data['CERTIFICATE'])
     message = data['MESSAGE']
     auction_id = int(message['AUCTION'])
+    secret = cm.decrypt(fromBase64(data['MANAGER_SECRET']))
+
     if data['LAST_BID'] is not None:
         las_bid_sequence = data['LAST_BID']['SEQUENCE']
         last_bid_value = fromBase64(data['LAST_BID']['VALUE'])
     else:
-        last_bid_value = 0
-    secret = cm.decrypt(fromBase64(data['MANAGER_SECRET']))
+        last_bid_value = None
 
     if hidden_identity:
         certificate = decrypt(secret, certificate)
-        identity = int(decrypt(secret, identity))
+        identity = int(decrypt(secret, identity).decode().split(' - ')[1])
     else:
-        identity = int(identity)
-    
+        identity = int(identity.decode().split(' - ')[1])
+
     if hidden_value:
-        value = decrypt(secret, value)
+        value = int(decrypt(secret, value).decode())
         if last_bid_value is not None:
             last_bid_secret = db.get_secret(auction_id, las_bid_sequence)
-            last_bid_value = decrypt(last_bid_secret, last_bid_value)
+            last_bid_value = int(decrypt(last_bid_secret, fromBase64(last_bid_value)).decode())
     else:
         value = int(value)
         if last_bid_value is not None:
-            last_bid_value = int(last_bid_value)
+            last_bid_value = int(fromBase64(last_bid_value).decode())
 
+    if last_bid_value == None : last_bid_value = 0
     cm = CertManager(cert = certificate)
 
     if not cm.verify_certificate():
@@ -345,7 +347,7 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    # TODO: Check this. As it stands the last sequence will always be the winner of the auction 
+    # TODO: Check this. As it stands the last sequence will always be the winner of the auction
     # check value (greater than previous)
     if value <= last_bid_value:
         logger.debug('INVALID VALUE %d %d', value, last_bid_value)
@@ -355,14 +357,17 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
         logger.debug('REPOSITORY REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
-    
+
     # Check dynamic code
-    code = db.get_code(auction_id)
+    code_tuple = db.get_code(auction_id)
+    code = ""
+    for c in code_tuple:
+        code += c
     # TODO: O cliente passa a guarda a identity ao lado da chave para poder contar
     times = db.times(auction_id, identity)
     if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
         data = {'STATE': 'NOT OK',
-                'ERROR': 'INVALID VALIDATION DYNAMIC CODE', 'NONCE': nonce}
+                'ERROR': 'Your offer was not accepted by the dynamic code.', 'NONCE': nonce}
         cert = CertManager.get_cert_by_name('repository.crt')
         reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
         logger.debug('REPOSITORY REPLY = %s', reply)
@@ -374,7 +379,7 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
     data = {'ONION_1': onion,
             'SIGNATURE': toBase64(cm.sign(json.dumps(onion).encode('UTF-8'))),
             'NONCE': nonce, 'STATE': 'OK'}
-    
+
     cert = CertManager.get_cert_by_name('repository.crt')
     reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
     logger.debug('REPOSITORY REPLY = %s', reply)
@@ -395,15 +400,13 @@ def store_secret(j, sock, addr, pk, oc, addr_rep, db):
     identity = fromBase64(data['IDENTITY'])
     certificate = fromBase64(data['CERTIFICATE'])
     sequence = data['SEQUENCE']
-    
+
     if hidden_identity:
         certificate = decrypt(secret, certificate)
         identity = decrypt(secret, identity)
-    else:
-        identity = int(identity)
 
     db.store_secret(auction_id, sequence, secret, identity)
-    
+
     data = {'STATE': 'OK', 'NONCE': nonce}
     cert = CertManager.get_cert_by_name('repository.crt')
     reply = server_encrypt('STORE_SECRET_REPLY', data, cert)

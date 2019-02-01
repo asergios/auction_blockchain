@@ -28,11 +28,11 @@ class RDB:
                 (title, desc, atype, subtype, duration, start, stop, seed))
         rv = cursor.lastrowid
         self.db.commit()
-        return rv 
+        return rv
 
     def list_auctions(self):
         cursor = self.db.cursor()
-        cursor.execute('SELECT * FROM auctions')
+        cursor.execute('SELECT * FROM auctions ORDER BY open DESC')
         return cursor.fetchall()
 
     def get_auctions(self, auction_ids):
@@ -86,7 +86,7 @@ class RDB:
         cursor = self.db.cursor()
         cursor.execute('UPDATE auctions SET open = 0 WHERE id = ?', (auction_id,))
         self.db.commit()
-    
+
     def store_bid(self, auction_id, identity, value):
         ls = self.get_last_sequence(auction_id)
 
@@ -103,7 +103,7 @@ class RDB:
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO bids(auction_id, sequence, prev_hash, identity, value) VALUES(?,?,?,?,?)',(auction_id, sequence, prev_hash, identity, value))
         self.db.commit()
-        
+
         return (prev_hash, sequence)
 
     def close(self):

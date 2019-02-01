@@ -725,6 +725,7 @@ def make_bid(arg):
 		EXPECTED ANSWER:
 		{
 			"ACTION": "RECEIPT",
+			"STATE" : ________,
 			"RECEIPT": ________
 		}
 	'''
@@ -735,18 +736,29 @@ def make_bid(arg):
 
 	logging.info("Validating and Saving Receipt...")
 
-	rm = ReceiptManager(cc)
-	if ( rm.validate_receipt(server_answer["RECEIPT"]) ):
+	if (server_answer["STATE"] == "OK"):
+		rm = ReceiptManager(cc)
+		if ( rm.validate_receipt(server_answer["RECEIPT"]) ):
+			clean(lines=1)
+			server_answer["RECEIPT"]["KEY"] = toBase64(cipher_key)
+			print( colorize( "Receipt received, please type your password to save it.", 'pink' ) )
+			rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"), server_answer["RECEIPT"]["ONION_2"]["PREV_HASH"])
+			clean(lines=1)
+			input( colorize( "Bid successfully set. Press any key to continue...", 'blue' ) )
+		else:
+			logging.error("Received an invalid receipt!")
+			clean(lines=1)
+			input(colorize( "Invalid Receipt Received, press any key to continue...", 'red' ))
+	elif (server_answer["STATE"] == "NOT OK"):
 		clean(lines=1)
-		server_answer["RECEIPT"]["KEY"] = toBase64(cipher_key)
-		print( colorize( "Receipt received, please type your password to save it.", 'pink' ) )
-		rm.save_receipt(str(auction_id), json.dumps(server_answer["RECEIPT"]).encode("UTF-8"), server_answer["RECEIPT"]["ONION_2"]["PREV_HASH"])
-		clean(lines=1)
-		input( colorize( "Bid successfully set. Press any key to continue...", 'blue' ) )
+		logging.info("Offer Failed : " + server_answer["ERROR"] )
+		print( colorize("ERROR: " + server_answer["ERROR"], 'red') )
+		input("Press any key to continue...")
 	else:
-		logging.error("Received an invalid receipt!")
 		clean(lines=1)
-		input(colorize( "Invalid Receipt Received, press any key to continue...", 'red' ))
+		logging.info("Offer Failed With Unexpected Error ")
+		print( colorize("Something really weird happen, please fill a bug report.", 'red') )
+		input("Press any key to continue...")
 
 def terminate_auction(auction_id):
 	'''

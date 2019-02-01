@@ -43,7 +43,7 @@ def main(args):
     cp =  CryptoPuzzle()
 
     signal.signal(signal.SIGINT, partial(signal_handler, addr))
-    
+
     pj = PeriodicJob(args.close_period, send_end_auctions, args=[addr])
 
     # switch case para tratar de mensagens
@@ -69,7 +69,7 @@ def main(args):
     logger.info('Auction Repository running...')
     done = False
     while not done:
-        j, addr = dsock.recvfrom() 
+        j, addr = dsock.recvfrom()
         logger.debug('JSON = %s', j)
         done = mActions[j['ACTION']](j, dsock, addr, pk, oc, cp, addr_man, db, pj)
 
@@ -97,7 +97,7 @@ def store(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     cert = CertManager.get_cert_by_name('repository.crt')
     data = json.loads(server_decrypt(j, cert, pk))
     logger.debug('DATA = %s', data)
-    
+
     auction_id = db.store_auction(data['TITLE'], data['DESCRIPTION'],
             data['TYPE'], data['SUBTYPE'],data['AUCTION_EXPIRES'])
     nonce = data['NONCE']
@@ -117,12 +117,12 @@ def list_auctions(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         auction_id = j['AUCTION_ID']
 
     if auction_id is None or isinstance(auction_id, list):
-        
+
         if auction_id is None:
             auctions = db.list_auctions()
         else:
             auctions = db.get_auctions(auction_id)
-        
+
         for_client = []
         for auction in auctions:
             l = {
@@ -173,7 +173,7 @@ def cryptopuzzle(j, sock, addr, pk, oc, cp, addr_man, db, pj):
                 'STARTS_WITH': toBase64(starts),
                 'ENDS_WITH':toBase64(ends),
                 'NONCE': nonce}
-    
+
     cert = CertManager.get_cert_by_name('repository.crt')
 
     cm = CertManager(cert = cert, priv_key = pk)
@@ -192,7 +192,7 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     message = j['MESSAGE']
     auction_id = int(message["AUCTION"])
     solution = fromBase64(message['SOLUTION'])
-    
+
     # Verificar CryptoPuzzle
     if not cp.validate_solution(fromBase64(message['IDENTITY']), solution):
         reply={'ACTION':'RECEIPT',
@@ -227,9 +227,9 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         logger.debug('CLIENT REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
-    
+
     nonce = toBase64(oc.add((addr, int(message["AUCTION"]), j['MANAGER_SECRET'], message['IDENTITY'], hidden_identity, j['CERTIFICATE'])))
-    
+
     # Isto funciona porque foi implementado um novo socket que faz delay a bids
     # Ou seja, se já existe uma bid em processamento para um leilão
     # as novas que chegam ficam em fila de espera
@@ -238,8 +238,8 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
 
     lb = None
     if last_bid is not None:
-        lb = {'SEQUENCE': last_bid[0], 'VALUE': toBase64(str(last_bid[1]).encode("UTF-8"))}
-    
+        lb = {'SEQUENCE': last_bid[1], 'VALUE': toBase64(str(last_bid[4]).encode("UTF-8"))}
+
     data = {'MESSAGE':message,
             'SIGNATURE': j['SIGNATURE'],
             'NONCE':nonce,
@@ -253,7 +253,7 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     cert = CertManager.get_cert_by_name('manager.crt')
     request = server_encrypt('VALIDATE_BID', data, cert)
     logger.debug('MANAGER REQUEST = %s', request)
-    sock.sendto(request, addr_man)        
+    sock.sendto(request, addr_man)
     return False
 
 
@@ -288,6 +288,7 @@ def validate_bid(j, sock, addr, pk, oc, cp, addr_man, db, pj):
             'SEQUENCE': sequence}
     signature_repository = cm.sign(json.dumps(onion2).encode('UTF-8'))
     reply = {'ACTION': 'RECEIPT',
+            'STATE' : 'OK',
             'AUCTION_ID': auction_id,
             'RECEIPT': {"ONION_2" : onion2, 'SIGNATURE': toBase64(signature_repository)}}
 
@@ -299,7 +300,7 @@ def validate_bid(j, sock, addr, pk, oc, cp, addr_man, db, pj):
             'HIDDEN_IDENTITY': hidden_identity,
             'CERTIFICATE': certificate,
             'NONCE': toBase64(nonce)}
-    
+
     cert = CertManager.get_cert_by_name('manager.crt')
     request = server_encrypt('STORE_SECRET', data, cert)
     logger.debug('MANAGER REQUEST = %s', request)
@@ -386,7 +387,7 @@ def reclaim(j, sock, addr, pk, oc, cp, addr_man, db, pj):
             'SIGNATURE': onion2['SIGNATURE'],
             'CERTIFICATE': toBase64(certificate),
             'NONCE': toBase64(nonce)}
-        
+
     cert = CertManager.get_cert_by_name('manager.crt')
     request = server_encrypt('VALIDATE_RECLAIM', data, cert)
     logger.debug('MANAGER REQUEST = %s', request)
@@ -410,7 +411,7 @@ def validate_reclaim_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         logger.debug('CLIENT REPLY = %s', reply)
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr_client)
         return False
-    
+
     reply['STATE'] = 'OK'
     logger.debug('CLIENT REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr_client)

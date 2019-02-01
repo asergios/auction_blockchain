@@ -26,6 +26,9 @@ def encrypt(pwd, message):
 		else:
 			ciphertext += cipher_engine.encrypt( part )
 
+	if len(parts[-1]) % AES.block_size == 0:
+		 ciphertext += cipher_engine.encrypt( pad(b'', AES.block_size) )
+
 	# Return Encypted Message
 	return ciphertext
 

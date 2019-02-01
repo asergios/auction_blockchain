@@ -14,7 +14,7 @@ class MDB:
         self.db = sqlite3.connect(path)
 
     def store_auction(self, user_cc, auction_id, code=None):
-        cursor = self.db.cursor()        
+        cursor = self.db.cursor()
         cursor.execute('INSERT INTO auctions(cc, auction_id) VALUES (?,?)', (user_cc, auction_id))
         if code is not None:
             cursor.execute('INSERT INTO codes(auction_id, code) VALUES (?,?)', (auction_id, code))
@@ -22,13 +22,13 @@ class MDB:
 
     def store_secret(self, auction_id, sequence, secret, identity):
         cursor = self.db.cursor()
-        cursor.execute('INSERT INTO bids(auction_id, sequence, secret, identity) VALUES (?,?,?)', (auction_id, identity, secret, identity))
+        cursor.execute('INSERT INTO bids(auction_id, sequence, secret, identity) VALUES (?,?,?,?)', (auction_id, sequence, secret, identity))
         self.db.commit()
 
     def get_secret(self, auction_id, sequence):
         cursor = self.db.cursor()
         cursor.execute('SELECT secret FROM bids WHERE auction_id = ? AND sequence = ?', (auction_id, sequence))
-        cursor.fetchone()
+        return cursor.fetchone()[0]
 
     def times(self, auction_id, identity):
         cursor = self.db.cursor()
