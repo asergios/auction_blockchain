@@ -394,6 +394,7 @@ def store_secret(j, sock, addr, pk, oc, addr_rep, db):
     hidden_identity = data['HIDDEN_IDENTITY']
     identity = fromBase64(data['IDENTITY'])
     certificate = fromBase64(data['CERTIFICATE'])
+    sequence = data['SEQUENCE']
     
     if hidden_identity:
         certificate = decrypt(secret, certificate)
@@ -401,7 +402,7 @@ def store_secret(j, sock, addr, pk, oc, addr_rep, db):
     else:
         identity = int(identity)
 
-    db.store_secret(auction_id, secret, identity)
+    db.store_secret(auction_id, sequence, secret, identity)
     
     data = {'STATE': 'OK', 'NONCE': nonce}
     cert = CertManager.get_cert_by_name('repository.crt')

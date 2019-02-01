@@ -20,10 +20,15 @@ class MDB:
             cursor.execute('INSERT INTO codes(auction_id, code) VALUES (?,?)', (auction_id, code))
         self.db.commit()
 
-    def store_secret(self, auction_id, identity, secret):
+    def store_secret(self, auction_id, sequence, secret, identity):
         cursor = self.db.cursor()
-        cursor.execute('INSERT INTO bids(auction_id, identity, secret) VALUES (?,?,?)', (auction_id, identity, secret))
+        cursor.execute('INSERT INTO bids(auction_id, sequence, secret, identity) VALUES (?,?,?)', (auction_id, identity, secret, identity))
         self.db.commit()
+
+    def get_secret(self, auction_id, sequence):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT secret FROM bids WHERE auction_id = ? AND sequence = ?', (auction_id, sequence))
+        cursor.fetchone()
 
     def times(self, auction_id, identity):
         cursor = self.db.cursor()

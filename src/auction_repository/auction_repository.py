@@ -293,6 +293,7 @@ def validate_bid(j, sock, addr, pk, oc, cp, addr_man, db, pj):
 
     nonce = oc.add((addr_client, reply))
     data = {'AUCTION_ID': auction_id,
+            'SEQUENCE': sequence,
             'SECRET': secret,
             'IDENTITY': identity,
             'HIDDEN_IDENTITY': hidden_identity,
