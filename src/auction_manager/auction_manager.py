@@ -360,19 +360,20 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
 
     # Check dynamic code
     code_tuple = db.get_code(auction_id)
-    code = ""
-    for c in code_tuple:
-        code += c
-    # TODO: O cliente passa a guarda a identity ao lado da chave para poder contar
-    times = db.times(auction_id, identity)
-    if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
-        data = {'STATE': 'NOT OK',
-                'ERROR': 'Your offer was not accepted by the dynamic code.', 'NONCE': nonce}
-        cert = CertManager.get_cert_by_name('repository.crt')
-        reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
-        logger.debug('REPOSITORY REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-        return False
+    if code_tuple:
+        code = ""
+        for c in code_tuple:
+            code += c
+        # TODO: O cliente passa a guarda a identity ao lado da chave para poder contar
+        times = db.times(auction_id, identity)
+        if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
+            data = {'STATE': 'NOT OK',
+                    'ERROR': 'Your offer was not accepted by the dynamic code.', 'NONCE': nonce}
+            cert = CertManager.get_cert_by_name('repository.crt')
+            reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
+            logger.debug('REPOSITORY REPLY = %s', reply)
+            sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+            return False
 
     cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'), priv_key = pk)
     onion = {'ONION_0': message, 'SIGNATURE': signature}

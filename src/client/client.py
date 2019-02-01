@@ -470,6 +470,7 @@ def list_auction(arg):
 			title = colorize('[ENGLISH]	', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND]	', 'pink')
 			title += colorize('[OPEN] ', 'green') if auction["STATUS"] else colorize('[CLOSED] ', 'red')
 			auctions.append({title + auction["TITLE"] : (list_auction, (auction["AUCTION_ID"],)) })
+		auctions.append({ "Refresh" : (list_auction, ()) })
 		auctions.append({ "Exit" : None })
 
 		# Print the menu
@@ -541,6 +542,7 @@ def list_auction(arg):
 			menu.append({"Terminate Auction (you must be the owner)" : (terminate_auction, auction_id) })
 		else:
 			menu.append({"Reclaim Prize" : (reclaim, (auction["AUCTION_ID"], auction["TYPE"] == "ENGLISH"))})
+		menu.append({ "Refresh" : (list_auction, (auction["AUCTION_ID"], )) })
 		menu.append({ "Exit" : None })
 
 		# Print Menu
@@ -760,6 +762,8 @@ def make_bid(arg):
 		print( colorize("Something really weird happen, please fill a bug report.", 'red') )
 		input("Press any key to continue...")
 
+	return list_auction((auction_id,))
+
 def terminate_auction(auction_id):
 	'''
 		Terminate an open auction
@@ -903,7 +907,7 @@ def print_menu(menu, info_to_print = None, timestamp = None):
 
 		# Print Count Down For Auction
 		if info_to_print:
-			p = Process(target=print_timer, args=(timestamp,5))
+			p = Process(target=print_timer, args=(timestamp,6))
 			p.start()
 			choice = input(">> ")
 			p.terminate()
@@ -914,6 +918,8 @@ def print_menu(menu, info_to_print = None, timestamp = None):
 			if int(choice) <= 0 : raise ValueError
 			if list(menu[int(choice) - 1].values())[0] == None: return
 			list(menu[int(choice) - 1].values())[0][0](list(menu[int(choice) - 1].values())[0][1])
+			if list(menu[int(choice) - 1].keys())[0] == "Refresh": return
+			if info_to_print: return
 		except (ValueError, IndexError):
 			pass
 
