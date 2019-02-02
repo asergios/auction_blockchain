@@ -6,6 +6,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from Crypto.Hash import SHA256
+from ..utils import fromBase64, toBase64
 
 
 logging.basicConfig(level=logging.DEBUG,
@@ -50,8 +51,26 @@ class RDB:
 
     def get_bids(self, auction_id):
         cursor = self.db.cursor()
-        cursor.execute('SELECT * FROM bids WHERE auction_id = ? ORDER BY sequence DESC', (auction_id,))
-        return cursor.fetchall()
+        cursor.execute('SELECT open FROM auctions WHERE id = ?', (auction_id,))
+        still_open = cursor.fetchone()[0] > 0
+
+        logger.debug('AUCTION %d STILL OPEN: %s', auction_id, still_open)
+
+        cursor.execute('SELECT * FROM bids WHERE auction_id = ? ORDER BY sequence ASC', (auction_id,))
+        bids_db = cursor.fetchall()
+        
+        bids = []
+        
+        if still_open:
+            for bid in bids_db:
+                bids.append({'PREV_HASH': bid[2], 'IDENTITY': bid[3], 'VALUE': bid[4]})
+        else:
+            secrets = cursor.execute('SELECT secret FROM secrets WHERE auction_id = ? ORDER BY sequence ASC', (auction_id,))
+            secrets = cursor.fetchall()
+            for i in range(0, len(bids_db)):
+                bids.append({'PREV_HASH': bids_db[i][2], 'IDENTITY': bids_db[i][3], 'VALUE': bids_db[i][4], 'KEY': toBase64(secrets[i][0])})
+        
+        return bids
 
     def get_last_sequence(self, auction_id):
         ls = -1
@@ -74,13 +93,77 @@ class RDB:
     def close_auctions(self):
         now = datetime.now()
         cursor = self.db.cursor()
-        cursor.execute('SELECT * FROM auctions WHERE open = 1 AND duration > 0')
+        cursor.execute('SELECT id, stop FROM auctions WHERE open = 1 AND duration > 0')
         rows = cursor.fetchall()
 
+        rv = []
+        
         for row in rows:
-            if now >= row[7]:
+            if now >= row[1]:
+                rv.append(row[0])
                 cursor.execute('UPDATE auctions SET open = 0 WHERE id = ?', (row[0],))
         self.db.commit()
+
+        return rv
+
+    def store_winner(self, auction_id, sequence):
+        cursor = self.db.cursor()
+        cursor.execute('INSERT INTO winners (auction_id, sequence) VALUES(?,?)', (auction_id, sequence))
+        self.db.commit()
+
+    def is_winner(self, auction_id, sequence):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT * FROM winners WHERE auction_id = ? AND sequence = ?', (auction_id, sequence))
+        row = cursor.fetchone()
+        if row is not None:
+            return True
+        return False
+
+    def store_secrets(self, secrets):
+        # prepare secrets (from dict to list)
+        vals = []
+        for secret in secrets:
+            val = [secret['AUCTION_ID'], secret['SEQUENCE'], fromBase64(secret['SECRET'])]
+            vals.append(val)
+        # store multiple
+        if len(vals) > 0:
+            cursor = self.db.cursor()
+            cursor.executemany("INSERT INTO secrets VALUES (?,?,?)", vals)
+            self.db.commit()
+
+    def find_store_winner(self, auction_id):
+        logger.debug('FIND STORE WINNER (AUCTION_ID %d)', auction_id)
+
+        cursor = self.db.cursor()
+        
+        cursor.execute('SELECT type, open FROM auctions WHERE id = ?', (auction_id,))
+        auction = cursor.fetchone()
+
+        # Still open
+        if auction[1] > 0:
+            logger.debug('AUCTION STILL OPEN...')
+            return False
+
+        hidden_value = (auction[0] == 2)
+
+        cursor.execute('SELECT sequence, value FROM bids WHERE auction_id = ? ORDER BY sequence ASC', (auction_id,))
+        value_tuples = cursor.fetchall()
+
+        # There are no bids
+        if not value_tuples:
+            logger.debug('DID NOT FOUND BIDS...')
+            return False
+        
+        if hidden_value:
+            cursor.execute('SELECT secret FROM secrets WHERE auction_id = ? ORDER BY sequence ASC', (auction_id,))
+            secrets = cursor.fetchall()
+            for i in range(0, len(value_tuples)):
+                value_tuples[i][1] = int(decrypt(secrets[i], value_tuples[i][1]).decode())
+
+        max_bid = max(value_tuples, key = lambda vt: vt[1])
+        sequence = max_bid[0]
+        self.store_winner(auction_id, sequence)
+        return True
 
     def close_auction(self, auction_id):
         cursor = self.db.cursor()

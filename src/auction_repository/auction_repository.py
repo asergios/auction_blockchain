@@ -58,6 +58,7 @@ def main(args):
             'TERMINATE_AUCTION': terminate_auction,
             'RECLAIM': reclaim,
             'VALIDATE_RECLAIM_REPLY': validate_reclaim_reply,
+            'DISCLOSURE_REPLY': disclosure_reply,
             'EXIT': exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -137,10 +138,7 @@ def list_auctions(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         row = db.get_auctions([auction_id])[0]
 
         auction = {}
-        bids_db = db.get_bids(auction_id)
-        bids = []
-        for bid in bids_db:
-            bids.append({'PREV_HASH': bid[2], 'IDENTITY': bid[3], 'VALUE': bid[4]})
+        bids = db.get_bids(auction_id)
 
         auction['AUCTION_ID'] = row[0]
         auction['TITLE'] = row[1]
@@ -321,7 +319,12 @@ def store_secret_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
 
 
 def close_auctions(j, sock, addr, pk, oc, cp, addr_man, db, pj):
-    db.close_auctions()
+    auction_ids = db.close_auctions()
+    for auction_id in auction_ids:
+        data = {'AUCTION_ID': auction_id}
+        request = server_encrypt('DISCLOSURE', data, cert)
+        logger.debug('MANAGER REQUEST = %s', request)
+        sock.sendto(request, addr)
     return False
 
 
@@ -335,12 +338,32 @@ def terminate_auction(j, sock, addr, pk, oc, cp, addr_man, db, pj):
 
     db.close_auction(auction_id)
 
+    # Reply to close the auction
     data = {'NONCE': nonce}
-
     cert = CertManager.get_cert_by_name('manager.crt')
     reply = server_encrypt('TERMINATE_AUCTION_REPLY', data, cert)
     logger.debug('MANAGER REPLY = %s', reply)
     sock.sendto(reply, addr)
+    
+    # Ask to disclosure the bids secrets
+    data = {'AUCTION_ID': auction_id}
+    request = server_encrypt('DISCLOSURE', data, cert)
+    logger.debug('MANAGER REQUEST = %s', request)
+    sock.sendto(request, addr)
+    return False
+
+
+def disclosure_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
+    cert = CertManager.get_cert_by_name('repository.crt')
+    data = json.loads(server_decrypt(j, cert, pk))
+    logger.debug('DATA = %s', data)
+
+    db.store_secrets(data['SECRETS'])
+    winner = db.find_store_winner(data['AUCTION_ID'])
+    
+    if winner:
+        logger.debug('FOUND WINNER...')
+
     return False
 
 
@@ -403,9 +426,10 @@ def validate_reclaim_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     reply = {'ACTION':'RECLAIM_REPLY'}
 
     addr_client, sequence = oc.pop(nonce)
-    last_sequence = db.get_last_sequence(data['AUCTION_ID'])
+    auction_id = data['AUCTION_ID']
+    #last_sequence = db.get_last_sequence(data['AUCTION_ID'])
 
-    if sequence != last_sequence:
+    if not db.is_winner(auction_id, sequence):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'NOT WINNING BID'
         logger.debug('CLIENT REPLY = %s', reply)

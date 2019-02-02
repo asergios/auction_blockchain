@@ -25,6 +25,11 @@ class MDB:
         cursor.execute('INSERT INTO bids(auction_id, sequence, secret, identity) VALUES (?,?,?,?)', (auction_id, sequence, secret, identity))
         self.db.commit()
 
+    def get_secrets(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT auction_id, sequence, secret FROM bids WHERE auction_id = ?', (auction_id,))
+        return cursor.fetchall()
+    
     def get_secret(self, auction_id, sequence):
         cursor = self.db.cursor()
         cursor.execute('SELECT secret FROM bids WHERE auction_id = ? AND sequence = ?', (auction_id, sequence))

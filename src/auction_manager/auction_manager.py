@@ -46,6 +46,7 @@ def main(args):
             'VALIDATE_RECLAIM': validate_reclaim,
             'TERMINATE' : terminate,
             'TERMINATE_AUCTION_REPLY': terminate_reply,
+            'DISCLOSURE': disclosure, 
             'EXIT': exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -347,9 +348,8 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    # TODO: Check this. As it stands the last sequence will always be the winner of the auction
-    # check value (greater than previous)
-    if value <= last_bid_value:
+    # TODO: Só verifica o valor das bids para o tipo 1
+    if value <= last_bid_value and data['AUCTION_TYPE'] == 1:
         logger.debug('INVALID VALUE %d %d', value, last_bid_value)
         data = {'STATE': 'NOT OK', 'ERROR': 'INVALID VALUE', 'NONCE': nonce}
         cert = CertManager.get_cert_by_name('repository.crt')
@@ -359,12 +359,12 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
         return False
 
     # Check dynamic code
+    # TODO: não percebi isto
     code_tuple = db.get_code(auction_id)
     if code_tuple:
         code = ""
         for c in code_tuple:
             code += c
-        # TODO: O cliente passa a guarda a identity ao lado da chave para poder contar
         times = db.times(auction_id, identity)
         if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
             data = {'STATE': 'NOT OK',
@@ -411,6 +411,34 @@ def store_secret(j, sock, addr, pk, oc, addr_rep, db):
     data = {'STATE': 'OK', 'NONCE': nonce}
     cert = CertManager.get_cert_by_name('repository.crt')
     reply = server_encrypt('STORE_SECRET_REPLY', data, cert)
+    logger.debug('REPOSITORY REPLY = %s', reply)
+    sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+    return False
+
+
+def disclosure(j, sock, addr, pk, oc, addr_rep, db):
+    cert = CertManager.get_cert_by_name('manager.crt')
+    data = json.loads(server_decrypt(j, cert, pk))
+    logger.debug('DATA = %s', data)
+
+    auction_id = data['AUCTION_ID']
+    #nonce = data['NONCE']
+    
+    rows = db.get_secrets(auction_id)
+
+    if rows is None:
+        data = {'AUCTION_ID': auction_id, 'SECRETS':[]}
+    else:
+        secrets = []
+        for row in rows: 
+            secret = {'AUCTION_ID': row[0],
+                    'SEQUENCE': row[1],
+                    'SECRET': toBase64(row[2])}
+            secrets.append(secret)
+        data = {'AUCTION_ID': auction_id, 'SECRETS': secrets}
+
+    cert = CertManager.get_cert_by_name('repository.crt')
+    reply = server_encrypt('DISCLOSURE_REPLY', data, cert)
     logger.debug('REPOSITORY REPLY = %s', reply)
     sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
     return False
