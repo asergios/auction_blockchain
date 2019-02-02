@@ -4,3 +4,4 @@ venv/
 *.swp
 *.db
 log
+src/common/receiptmanager/receipts/*
