@@ -315,9 +315,11 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
 
     if hidden_identity:
         certificate = decrypt(secret, certificate)
-        identity = int(decrypt(secret, identity).decode().split(' - ')[1])
+        raw_identity = decrypt(secret, identity)
+        identity = int(raw_identity.decode().split(' - ')[1])
     else:
-        identity = int(identity.decode().split(' - ')[1])
+        raw_identity = identity
+        identity = int(raw_identity.decode().split(' - ')[1])
 
     if hidden_value:
         value = int(decrypt(secret, value).decode())
@@ -360,20 +362,16 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
 
     # Check dynamic code
     # TODO: não percebi isto
-    code_tuple = db.get_code(auction_id)
-    if code_tuple:
-        code = ""
-        for c in code_tuple:
-            code += c
-        times = db.times(auction_id, identity)
-        if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
-            data = {'STATE': 'NOT OK',
-                    'ERROR': 'Your offer was not accepted by the dynamic code.', 'NONCE': nonce}
-            cert = CertManager.get_cert_by_name('repository.crt')
-            reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
-            logger.debug('REPOSITORY REPLY = %s', reply)
-            sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
-            return False
+    code = db.get_code(auction_id)[0]
+    times = db.times(auction_id, raw_identity)
+    if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
+        data = {'STATE': 'NOT OK',
+                'ERROR': 'Your offer was not accepted by the dynamic code.', 'NONCE': nonce}
+        cert = CertManager.get_cert_by_name('repository.crt')
+        reply = server_encrypt('VALIDATE_BID_REPLY', data, cert)
+        logger.debug('REPOSITORY REPLY = %s', reply)
+        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        return False
 
     cm = CertManager(cert = CertManager.get_cert_by_name('manager.crt'), priv_key = pk)
     onion = {'ONION_0': message, 'SIGNATURE': signature}
