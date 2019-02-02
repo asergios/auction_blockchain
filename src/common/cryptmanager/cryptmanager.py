@@ -60,7 +60,7 @@ def pad(data, bLen):
 # Helper function to communicate with the servers
 # Hybrid approach
 def server_encrypt(action, data, cert):
-    pwd = os.urandom(16)
+    pwd = os.urandom(32)
     cm = CertManager(cert = cert)
     encrypted_pwd = cm.encrypt(pwd)
     encrypted_data = encrypt(pwd, json.dumps(data).encode('UTF-8'))

@@ -614,7 +614,7 @@ def make_bid(arg):
 	logging.info("Auction Requires to Encrypt Values, Encrypting...")
 
 	# Hiding needed values
-	cipher_key = os.urandom(16)
+	cipher_key = os.urandom(32)
 	# Import his certificate to encrypt cipher_key
 	manager_cert = CertManager.get_cert_by_name('manager.crt')
 	cm = CertManager(manager_cert)
