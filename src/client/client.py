@@ -78,10 +78,14 @@ def wait_for_answer(sock, action):
 	input("Press any key to continue...")
 	return False
 
-def reclaim(auction_id, is_english):
+def reclaim(arg):
 	'''
 		Reclaim your prize (WIP)
 	'''
+
+	# Reading arguments
+	auction_id = arg[0]
+	is_english = arg[1]
 
 	# Scanning user CartaoDeCidadao
 	logging.info("Reading User's Cartao De Cidadao")
@@ -98,7 +102,7 @@ def reclaim(auction_id, is_english):
 	logging.info("Sent Challenge To Server: " + json.dumps(connection))
 
 	# Wait for Challenge Response
-	server_answer = wait_for_answer(sock_manager , "CHALLENGE_REPLY")
+	server_answer = wait_for_answer(sock_repository , "CHALLENGE_REPLY")
 	if not server_answer: return
 	logging.info("Received Challenge Response: " + json.dumps(server_answer))
 
@@ -111,7 +115,7 @@ def reclaim(auction_id, is_english):
 		return
 
 	rm = ReceiptManager(cc)
-	bids = rm.get_receipt_value(str(auction_id), is_english)
+	bids = rm.get_receipt_value(str(auction_id), not is_english)
 	if bids == []:
 		input( colorize( "You have no bids at this auction. Press any key to continue...", 'red' ) )
 		return
@@ -502,25 +506,25 @@ def list_auction(arg):
 		for bid in auction["BIDS"]:
 			if auction["SUBTYPE"] == "HIDDEN IDENTITY":
 				if not auction["STATUS"]:
-					identity = decrypt(fromBase64(bid["KEY"]), fromBase64(bid["IDENTITY"]).decode())
-					auction_info.append( colorize("IDENTITY: " + identity + "	[" + bid["IDENTITY"] + "]", 'blue') )
+					identity = decrypt(fromBase64(bid["KEY"]), fromBase64(bid["IDENTITY"])).decode()
+					auction_info.append( colorize("IDENTITY:	" + identity + "  [" + bid["IDENTITY"] + "]", 'blue') )
 				else:
-					auction_info.append( colorize("IDENTITY: " + bid["IDENTITY"], 'blue') )
+					auction_info.append( colorize("IDENTITY:	" + bid["IDENTITY"], 'blue') )
 			else:
-				auction_info.append( colorize("IDENTITY: " + fromBase64(bid["IDENTITY"]).decode(), 'blue') )
+				auction_info.append( colorize("IDENTITY:	" + fromBase64(bid["IDENTITY"]).decode(), 'blue') )
 
 			if auction["TYPE"] == "ENGLISH":
-				auction_info.append( colorize("VALUE: " + fromBase64(bid["VALUE"]).decode() + "€", 'blue') )
+				auction_info.append( colorize("VALUE:		" + fromBase64(bid["VALUE"]).decode() + "€", 'blue') )
 			else:
 				if not auction["STATUS"]:
-					value = decrypt(fromBase64(bid["KEY"]), fromBase64(bid["VALUE"]).decode())
-					auction_info.append( colorize("VALUE: " + value + "€	[" + bid["VALUE"] + "]", 'blue') )
+					value = decrypt(fromBase64(bid["KEY"]), fromBase64(bid["VALUE"])).decode()
+					auction_info.append( colorize("VALUE:		" + value + "€  [" + bid["VALUE"] + "]", 'blue') )
 				else:
-					auction_info.append( colorize("VALUE: " + bid["VALUE"], 'blue') )
+					auction_info.append( colorize("VALUE:		" + bid["VALUE"], 'blue') )
 
 			if not auction["STATUS"]:
-				auction_info.append( colorize("KEY:" + fromBase64(bid["KEY"]), 'blue') )
-			auction_info.append( colorize("PREVIOUS HASH:" + bid["PREV_HASH"], 'blue') )
+				auction_info.append( colorize("KEY:		" + bid["KEY"], 'blue') )
+			auction_info.append( colorize("PREVIOUS HASH:	" + bid["PREV_HASH"], 'blue') )
 			auction_info.append( colorize("============================", 'green') )
 
 		if len(auction["BIDS"]):
@@ -530,7 +534,7 @@ def list_auction(arg):
 			else:
 				auction_info.append( colorize("BLOCKCHAIN:	", 'pink') + colorize("INVALID (contact admin please)", 'red'))
 
-		auction_info.append( colorize('ENDS IN:	', 'pink') )
+		auction_info.append( colorize('ENDS IN:        ', 'pink') + colorize('AUCTION ENDED', 'red') )
 		auction_info.append( "======================================================" )
 
 
@@ -541,6 +545,7 @@ def list_auction(arg):
 						auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY"))})
 			menu.append({"Terminate Auction (you must be the owner)" : (terminate_auction, auction_id) })
 		else:
+			auction["ENDING_TIMESTAMP"] = -1
 			menu.append({"Reclaim Prize" : (reclaim, (auction["AUCTION_ID"], auction["TYPE"] == "ENGLISH"))})
 		menu.append({ "Refresh" : (list_auction, (auction["AUCTION_ID"], )) })
 		menu.append({ "Exit" : None })
@@ -906,7 +911,7 @@ def print_menu(menu, info_to_print = None, timestamp = None):
 			print( str(menu.index(item) + 1) + " - " + list(item.keys())[0] )
 
 		# Print Count Down For Auction
-		if info_to_print:
+		if info_to_print and timestamp != -1:
 			p = Process(target=print_timer, args=(timestamp,6))
 			p.start()
 			choice = input(">> ")

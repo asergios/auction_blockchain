@@ -46,7 +46,7 @@ def main(args):
             'VALIDATE_RECLAIM': validate_reclaim,
             'TERMINATE' : terminate,
             'TERMINATE_AUCTION_REPLY': terminate_reply,
-            'DISCLOSURE': disclosure, 
+            'DISCLOSURE': disclosure,
             'EXIT': exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
@@ -270,7 +270,7 @@ def validate_reclaim(j, sock, addr, pk, oc, addr_rep, db):
     onion0 = onion1['ONION_0']
     s = fromBase64(onion1['SIGNATURE'])
 
-    cm = CertManager(cert = data['CERTIFICATE'])
+    cm = CertManager(cert = fromBase64(data['CERTIFICATE']))
 
     if not cm.verify_signature(s, json.dumps(onion0).encode('UTF-8')):
         data = {'STATE': 'NOT OK', 'ERROR': 'INVALID SIGNATURE (ONION 0)', 'NONCE': nonce}
@@ -280,7 +280,7 @@ def validate_reclaim(j, sock, addr, pk, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    data = {'AUCTION_ID': int(ONION_0['AUCTION']), 'STATE': 'OK', 'NONCE': nonce}
+    data = {'AUCTION_ID': int(onion0['AUCTION']), 'STATE': 'OK', 'NONCE': nonce}
     cert = CertManager.get_cert_by_name('repository.crt')
     reply = server_encrypt('VALIDATE_RECLAIM_REPLY', data, cert)
     logger.debug('REPOSITORY REPLY = %s', reply)
@@ -423,14 +423,14 @@ def disclosure(j, sock, addr, pk, oc, addr_rep, db):
 
     auction_id = data['AUCTION_ID']
     #nonce = data['NONCE']
-    
+
     rows = db.get_secrets(auction_id)
 
     if rows is None:
         data = {'AUCTION_ID': auction_id, 'SECRETS':[]}
     else:
         secrets = []
-        for row in rows: 
+        for row in rows:
             secret = {'AUCTION_ID': row[0],
                     'SEQUENCE': row[1],
                     'SECRET': toBase64(row[2])}

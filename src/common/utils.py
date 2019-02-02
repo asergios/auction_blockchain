@@ -33,6 +33,7 @@ def validate_blockchain(bids, seed):
 
     prev_hash = bids[0]["PREV_HASH"]
     for bid in bids[1:]:
+        bid.pop('KEY', None)
         hash = SHA256.new(data=json.dumps(bid).encode("UTF-8")).hexdigest()
         if prev_hash != hash : return False
         prev_hash = bid["PREV_HASH"]
@@ -152,7 +153,7 @@ class PeriodicJob(Thread):
         self.kwargs = kwargs
         self.t = time.time()
         self.count = 1
-        
+
     def stop(self):
         self.stopped.set()
         self.join()
@@ -219,4 +220,3 @@ class DelaySocket:
                 self.auction_pending.remove(auction_id)
                 self.logger.debug('Auction $d no longer blocked...', auction_id)
         self.sock.sendto(json.dumps(msg).encode('UTF-8'), addr)
-

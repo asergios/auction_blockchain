@@ -6,6 +6,7 @@ import json
 import os
 from datetime import datetime, timedelta
 from Crypto.Hash import SHA256
+from ..cryptmanager import *
 from ..utils import fromBase64, toBase64
 
 
@@ -58,9 +59,9 @@ class RDB:
 
         cursor.execute('SELECT * FROM bids WHERE auction_id = ? ORDER BY sequence ASC', (auction_id,))
         bids_db = cursor.fetchall()
-        
+
         bids = []
-        
+
         if still_open:
             for bid in bids_db:
                 bids.append({'PREV_HASH': bid[2], 'IDENTITY': bid[3], 'VALUE': bid[4]})
@@ -69,8 +70,8 @@ class RDB:
             secrets = cursor.fetchall()
             for i in range(0, len(bids_db)):
                 bids.append({'PREV_HASH': bids_db[i][2], 'IDENTITY': bids_db[i][3], 'VALUE': bids_db[i][4], 'KEY': toBase64(secrets[i][0])})
-        
-        return bids
+
+        return list(reversed(bids))
 
     def get_last_sequence(self, auction_id):
         ls = -1
@@ -97,7 +98,7 @@ class RDB:
         rows = cursor.fetchall()
 
         rv = []
-        
+
         for row in rows:
             if now >= row[1]:
                 rv.append(row[0])
@@ -135,7 +136,7 @@ class RDB:
         logger.debug('FIND STORE WINNER (AUCTION_ID %d)', auction_id)
 
         cursor = self.db.cursor()
-        
+
         cursor.execute('SELECT type, open FROM auctions WHERE id = ?', (auction_id,))
         auction = cursor.fetchone()
 
@@ -147,18 +148,18 @@ class RDB:
         hidden_value = (auction[0] == 2)
 
         cursor.execute('SELECT sequence, value FROM bids WHERE auction_id = ? ORDER BY sequence ASC', (auction_id,))
-        value_tuples = cursor.fetchall()
+        value_tuples = [ list(x) for x in cursor.fetchall() ]
 
         # There are no bids
         if not value_tuples:
             logger.debug('DID NOT FOUND BIDS...')
             return False
-        
+
         if hidden_value:
             cursor.execute('SELECT secret FROM secrets WHERE auction_id = ? ORDER BY sequence ASC', (auction_id,))
             secrets = cursor.fetchall()
             for i in range(0, len(value_tuples)):
-                value_tuples[i][1] = int(decrypt(secrets[i], value_tuples[i][1]).decode())
+                value_tuples[i][1] = int(decrypt(secrets[i][0], fromBase64(value_tuples[i][1])).decode())
 
         max_bid = max(value_tuples, key = lambda vt: vt[1])
         sequence = max_bid[0]

@@ -135,7 +135,6 @@ class ReceiptManager:
 				# Decrypting Receipt
 				result = decrypt(pw, file.read())
 				file.close()
-
 				# Checking integrity of the receipt
 				if(compare_digest(result[:32], SHA256.new(result[32:]).digest())):
 					receipt = json.loads(result[32:])

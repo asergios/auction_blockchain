@@ -198,7 +198,7 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
                 'AUCTION_ID': auction_id,
                 'ERROR':'INVALID OR LATE CRYPTOPUZZLE'}
         logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        sock.sendto(reply, addr)
         return False
 
     auction = db.get_auctions([auction_id])[0]
@@ -210,7 +210,7 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
                 'AUCTION_ID': auction_id,
                 'ERROR':'AUCTION CLOSED'}
         logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        sock.sendto(reply, addr)
         return False
 
     hidden_value = (auction[3] == 2)
@@ -223,7 +223,7 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
                 'AUCTION_ID': auction_id,
                 'ERROR':'AUCTION REQUIREMENTS NOT MET'}
         logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        sock.sendto(reply, addr)
         return False
 
     nonce = toBase64(oc.add((addr, int(message["AUCTION"]), j['MANAGER_SECRET'], message['IDENTITY'], hidden_identity, j['CERTIFICATE'])))
@@ -319,12 +319,13 @@ def store_secret_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
 
 
 def close_auctions(j, sock, addr, pk, oc, cp, addr_man, db, pj):
+    cert = CertManager.get_cert_by_name('manager.crt')
     auction_ids = db.close_auctions()
     for auction_id in auction_ids:
         data = {'AUCTION_ID': auction_id}
         request = server_encrypt('DISCLOSURE', data, cert)
         logger.debug('MANAGER REQUEST = %s', request)
-        sock.sendto(request, addr)
+        sock.sendto(request, addr_man)
     return False
 
 
@@ -344,7 +345,7 @@ def terminate_auction(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     reply = server_encrypt('TERMINATE_AUCTION_REPLY', data, cert)
     logger.debug('MANAGER REPLY = %s', reply)
     sock.sendto(reply, addr)
-    
+
     # Ask to disclosure the bids secrets
     data = {'AUCTION_ID': auction_id}
     request = server_encrypt('DISCLOSURE', data, cert)
@@ -360,7 +361,7 @@ def disclosure_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
 
     db.store_secrets(data['SECRETS'])
     winner = db.find_store_winner(data['AUCTION_ID'])
-    
+
     if winner:
         logger.debug('FOUND WINNER...')
 
@@ -379,20 +380,20 @@ def reclaim(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID CERTIFICATE'
         logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        sock.sendto(reply, addr)
         return False
 
     if not cm.verify_signature(s, json.dumps(j['MESSAGE']).encode('UTF-8')):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID SIGNATURE'
         logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        sock.sendto(reply, addr)
         return False
 
     receipt = message['RECEIPT']
 
     onion2 = receipt['ONION_2']
-    s = receipt['SIGNATURE']
+    s = fromBase64(receipt['SIGNATURE'])
 
     cm = CertManager(cert = CertManager.get_cert_by_name('repository.crt'), priv_key = pk)
 
@@ -400,7 +401,7 @@ def reclaim(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID SIGNATURE (ONION 2)'
         logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
+        sock.sendto(reply, addr)
         return False
 
     sequence = onion2['SEQUENCE']
@@ -433,12 +434,12 @@ def validate_reclaim_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'NOT WINNING BID'
         logger.debug('CLIENT REPLY = %s', reply)
-        sock.sendto(json.dumps(reply).encode('UTF-8'), addr_client)
+        sock.sendto(reply, addr_client)
         return False
 
     reply['STATE'] = 'OK'
     logger.debug('CLIENT REPLY = %s', reply)
-    sock.sendto(json.dumps(reply).encode('UTF-8'), addr_client)
+    sock.sendto(reply, addr_client)
     return False
 
 
