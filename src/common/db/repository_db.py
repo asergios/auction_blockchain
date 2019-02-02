@@ -107,6 +107,18 @@ class RDB:
 
         return rv
 
+    def is_claimed(self, auction_id):
+        cursor = self.db.cursor()
+        cursor.execute('SELECT claimed FROM auctions WHERE id = ?', (auction_id,))
+        return cursor.fetchone()[0] == 1
+
+    def mark_claimed(self, auction_id):
+        cursor = self.db.cursor()
+        if not self.is_claimed(auction_id):
+            cursor = self.db.cursor()
+            cursor.execute('UPDATE auctions SET claimed = 1 WHERE id = ?', (auction_id,))
+            self.db.commit()
+
     def store_winner(self, auction_id, sequence):
         cursor = self.db.cursor()
         cursor.execute('INSERT INTO winners (auction_id, sequence) VALUES(?,?)', (auction_id, sequence))
@@ -166,10 +178,16 @@ class RDB:
         self.store_winner(auction_id, sequence)
         return True
 
-    def close_auction(self, auction_id):
+    def is_close(self, auction_id):
         cursor = self.db.cursor()
-        cursor.execute('UPDATE auctions SET open = 0 WHERE id = ?', (auction_id,))
-        self.db.commit()
+        cursor.execute('SELECT open FROM auctions WHERE id = ?', (auction_id,))
+        return cursor.fetchone()[0] == 0
+    
+    def close_auction(self, auction_id):
+        if not self.is_close(auction_id):
+            cursor = self.db.cursor()
+            cursor.execute('UPDATE auctions SET open = 0 WHERE id = ?', (auction_id,))
+            self.db.commit()
 
     def store_bid(self, auction_id, identity, value):
         ls = self.get_last_sequence(auction_id)

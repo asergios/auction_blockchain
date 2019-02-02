@@ -16,14 +16,14 @@ Root
 
 ### Auction Manager
 
-#### Tabela para mapear leilões a utilizadores
+#### Tabela para mapear leilões a utilizadores (auctions)
 
 |  Columns   |       Types      |
 |------------|------------------|
 | cc         | **TEXT (PK)**    |
 | auction_id | **INTEGER (PK)** |
 
-#### Tabela para armazenar as chaves dos clientes (por bid)
+#### Tabela para armazenar as chaves dos clientes (bids)
 
 |  Columns   |         Types       |
 |------------|---------------------|
@@ -32,7 +32,7 @@ Root
 | identity   | TEXT                |
 | secret     | TEXT                |
 
-#### Tabela para armazenar código dinamico 
+#### Tabela para armazenar o código dinamico (codes)
 
 |  Columns   |         Types       |
 |------------|---------------------|
@@ -41,7 +41,7 @@ Root
 
 ### Auction Repository
 
-#### Tabela para os leilões
+#### Tabela para armazenar os leilões (auctions)
 
 | Columns  |       Types      |
 |----------|------------------|
@@ -55,16 +55,33 @@ Root
 | stop     | TIMESTAMP        |
 | seed     | TEXT             |
 | open     | INTEGER (1)      |
+| claimed  | INTEGER (0)      |
 
-#### Tabela para bids
+#### Tabela para armazenar as apostas (bids)
 
 |   Columns   |       Types      |
 |-------------|------------------|
-| auction_id  | **INTEGER (PK)** |
+| auction_id  | **INTEGER (PK/FK)** |
 | sequence    | **INTEGER (PK)** |
 | prev_hash   | TEXT             |
 | identity    | TEXT             |
 | value       | TEXT             |
+
+#### Tabela para armazenar as chaves das bids (secrets)
+
+|   Columns   |         Types       |
+|-------------|---------------------|
+| auction_id  | **INTEGER (PK/FK)** |
+| sequence    | **INTEGER (PK/FK)** |
+| secret      | TEXT                |
+
+
+#### Tabela para armazenar os vencedores (winners)
+
+|   Columns   |       Types      |
+|-------------|------------------|
+| auction_id  | **INTEGER (PK)** |
+| sequence    | INTEGER (FK)     |
 
 ## Pré-requesitos
 Os pré-requisitos podem ser instalados manualmente.

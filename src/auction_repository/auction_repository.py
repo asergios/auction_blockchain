@@ -137,6 +137,10 @@ def list_auctions(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     else:
         row = db.get_auctions([auction_id])[0]
 
+        claimed = False 
+        if db.is_claimed(auction_id):
+            claimed = True
+
         auction = {}
         bids = db.get_bids(auction_id)
 
@@ -149,6 +153,7 @@ def list_auctions(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         auction['SEED'] = row[8]
         auction['BIDS'] = bids
         auction['STATUS'] = row[9] == 1
+        auction['CLAIMED'] = claimed
         message = {'NONCE':toBase64(nonce), 'AUCTION':auction}
 
     cert = CertManager.get_cert_by_name('repository.crt')
@@ -375,7 +380,7 @@ def reclaim(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     certificate = oc.pop(nonce)
     cm = CertManager(cert = certificate)
     reply = {'ACTION':'RECLAIM_REPLY'}
-
+    
     if not cm.verify_certificate():
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID CERTIFICATE'
@@ -430,12 +435,21 @@ def validate_reclaim_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     auction_id = data['AUCTION_ID']
     #last_sequence = db.get_last_sequence(data['AUCTION_ID'])
 
+    if db.is_claimed(auction_id):
+        reply['STATE'] = 'NOT OK'
+        reply['ERROR'] = 'ACTION ALREADY CLAIMED'
+        logger.debug('CLIENT REPLY = %s', reply)
+        sock.sendto(reply, addr_client)
+        return False
+    
     if not db.is_winner(auction_id, sequence):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'NOT WINNING BID'
         logger.debug('CLIENT REPLY = %s', reply)
         sock.sendto(reply, addr_client)
         return False
+
+    db.mark_claimed(auction_id)
 
     reply['STATE'] = 'OK'
     logger.debug('CLIENT REPLY = %s', reply)
