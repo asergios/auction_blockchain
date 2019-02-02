@@ -130,14 +130,15 @@ def list_auctions(j, sock, addr, pk, oc, cp, addr_man, db, pj):
                     'AUCTION_ID' : auction[0],
                     'TITLE' : auction[1],
                     'TYPE'  : auction[3],
-                    'STATUS': auction[9] == 1
+                    'STATUS': auction[9] == 1,
+                    'CLAIMED' : auction[10] == 1
                 }
             for_client.append(l)
         message = {'NONCE':toBase64(nonce), 'LIST':for_client}
     else:
         row = db.get_auctions([auction_id])[0]
 
-        claimed = False 
+        claimed = False
         if db.is_claimed(auction_id):
             claimed = True
 
@@ -380,7 +381,7 @@ def reclaim(j, sock, addr, pk, oc, cp, addr_man, db, pj):
     certificate = oc.pop(nonce)
     cm = CertManager(cert = certificate)
     reply = {'ACTION':'RECLAIM_REPLY'}
-    
+
     if not cm.verify_certificate():
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'INVALID CERTIFICATE'
@@ -441,7 +442,7 @@ def validate_reclaim_reply(j, sock, addr, pk, oc, cp, addr_man, db, pj):
         logger.debug('CLIENT REPLY = %s', reply)
         sock.sendto(reply, addr_client)
         return False
-    
+
     if not db.is_winner(auction_id, sequence):
         reply['STATE'] = 'NOT OK'
         reply['ERROR'] = 'NOT WINNING BID'

@@ -472,7 +472,12 @@ def list_auction(arg):
 		# Build Titles Of Auctions To Be printed
 		for auction in auction_list:
 			title = colorize('[ENGLISH]	', 'blue') if auction["TYPE"] == 1 else colorize('[BLIND]	', 'pink')
-			title += colorize('[OPEN] ', 'green') if auction["STATUS"] else colorize('[CLOSED] ', 'red')
+			if auction["STATUS"]:
+				title += colorize('[OPEN] ', 'green')
+			elif auction["CLAIMED"]:
+				title += colorize('[CLOSED] ', 'red')
+			else:
+				title += colorize('[WAITING FOR CLAIM] ', 'pink')
 			auctions.append({title + auction["TITLE"] : (list_auction, (auction["AUCTION_ID"],)) })
 		auctions.append({ "Refresh" : (list_auction, ()) })
 		auctions.append({ "Exit" : None })
@@ -544,10 +549,12 @@ def list_auction(arg):
 			menu.append({"Make Offer" : (make_bid, (auction["AUCTION_ID"], \
 						auction["TYPE"] == "ENGLISH", auction["SUBTYPE"] == "HIDDEN IDENTITY"))})
 			menu.append({"Terminate Auction (you must be the owner)" : (terminate_auction, auction_id) })
+			menu.append({ "Refresh" : (list_auction, (auction["AUCTION_ID"], )) })
 		else:
 			auction["ENDING_TIMESTAMP"] = -1
-			menu.append({"Reclaim Prize" : (reclaim, (auction["AUCTION_ID"], auction["TYPE"] == "ENGLISH"))})
-		menu.append({ "Refresh" : (list_auction, (auction["AUCTION_ID"], )) })
+			if(not auction["CLAIMED"]):
+				menu.append({"Reclaim Prize" : (reclaim, (auction["AUCTION_ID"], auction["TYPE"] == "ENGLISH"))})
+				menu.append({ "Refresh" : (list_auction, (auction["AUCTION_ID"], )) })
 		menu.append({ "Exit" : None })
 
 		# Print Menu
