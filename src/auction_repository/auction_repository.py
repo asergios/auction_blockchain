@@ -62,9 +62,9 @@ def main(args):
             'EXIT': exit}
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.bind(addr)
-
+    #socket que atrasa ofertas quando outra esta a ser validada (consistencia da base de dados)
     dsock = DelaySocket(sock)
-
+    #periodicamente termina os leilões por time out
     pj.start()
 
     logger.info('Auction Repository running...')
