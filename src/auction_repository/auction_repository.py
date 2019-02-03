@@ -209,7 +209,7 @@ def offer(j, sock, addr, pk, oc, cp, addr_man, db, pj):
 
     auction = db.get_auctions([auction_id])[0]
     now = datetime.now()
-
+    
     if auction[9] == 0 or now > auction[7]:
         reply={'ACTION':'RECEIPT',
                 'STATE': 'NOT OK',

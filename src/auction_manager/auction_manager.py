@@ -350,7 +350,6 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
         sock.sendto(json.dumps(reply).encode('UTF-8'), addr)
         return False
 
-    # TODO: Só verifica o valor das bids para o tipo 1
     if value <= last_bid_value and data['AUCTION_TYPE'] == 1:
         logger.debug('INVALID VALUE %d %d', value, last_bid_value)
         data = {'STATE': 'NOT OK', 'ERROR': 'INVALID VALUE', 'NONCE': nonce}
@@ -361,8 +360,9 @@ def validate_bid(j, sock, addr, pk, oc, addr_rep, db):
         return False
 
     # Check dynamic code
-    # TODO: não percebi isto
-    code = db.get_code(auction_id)[0]
+    code = db.get_code(auction_id)
+    if code is not None:
+        code = code[0]
     times = db.times(auction_id, raw_identity)
     if code is not None and not DynamicCode.run_dynamic(identity, value, times, last_bid_value, code):
         data = {'STATE': 'NOT OK',
